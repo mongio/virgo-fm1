@@ -1,0 +1,923 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VIRGO __VERSION__ – onde gravitazionali per l’FM-1</title>
+<style>
+  :root { --bg:#070a12; --panel:#0d1220; --line:#1c2438; --txt:#dfe8f8; --dim:#8392ad; --cyan:#6fe3ff; --amber:#ffb35c; --viol:#b28cff; --red:#ff7a5c; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: radial-gradient(1200px 600px at 50% -10%, #141c33 0%, var(--bg) 60%); color: var(--txt);
+               font: 15px/1.55 "Inter", "Segoe UI", system-ui, sans-serif; min-height: 100vh; }
+  main { max-width: 1040px; margin: 0 auto; padding: 30px 20px 60px; }
+  h1 { margin: 0; font-size: 46px; letter-spacing: .3em; font-weight: 700; }
+  h2 { margin: 0 0 10px; font-size: 20px; letter-spacing: .04em; }
+  .sub { color: var(--dim); margin: 6px 0 0; max-width: 60ch; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; margin-top: 18px; }
+  p { margin: 0 0 10px; }
+  button, label.btn { background: var(--cyan); color: #06101a; border: 0; border-radius: 9px; padding: 9px 15px; font: 600 14px inherit; cursor: pointer; display: inline-block; }
+  button.ghost, label.btn.ghost { background: transparent; color: var(--txt); border: 1px solid var(--line); }
+  button:disabled { opacity: .45; cursor: default; }
+  label.btn input { display: none; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 12px 0 4px; }
+  .note { color: var(--amber); min-height: 1.4em; margin-top: 8px; }
+  .fine { color: var(--dim); font-size: 13px; }
+  .progress { display: none; height: 8px; border-radius: 4px; background: #141b2b; overflow: hidden; margin-top: 10px; }
+  .progress .fill { height: 100%; width: 0; background: var(--cyan); transition: width .2s; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  td, th { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; font-size: 14px; }
+  th { color: var(--dim); font-weight: 600; font-size: 12px; letter-spacing: .06em; }
+  td input[type=text] { background: #0a0f1c; color: var(--txt); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; width: 12ch; font: inherit; text-transform: uppercase; }
+  td select { background: #0a0f1c; color: var(--txt); border: 1px solid var(--line); border-radius: 6px; padding: 3px; }
+  .meter { height: 10px; border-radius: 5px; background: #141b2b; overflow: hidden; margin-top: 12px; }
+  .meter .fill { height: 100%; background: linear-gradient(90deg, var(--cyan), var(--viol)); width: 0; }
+  .shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; margin-top: 12px; }
+  .shot { background: #000; border-radius: 10px; padding: 8px; border: 1px solid var(--line); }
+  .shot img { width: 100%; image-rendering: auto; display: block; border-radius: 3px; }
+  .shot h3 { margin: 8px 2px 2px; font-size: 14px; letter-spacing: .08em; }
+  .shot p { margin: 0 2px; font-size: 13px; color: var(--dim); }
+  .warn { color: var(--amber); font-weight: 600; display: none; }
+  kbd { background: #1a2133; border: 1px solid #2a3248; border-radius: 4px; padding: 0 5px; font: 600 12px inherit; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } h1 { font-size: 34px; } }
+
+  .sim { display: grid; grid-template-columns: 150px minmax(240px, 480px) 1fr; gap: 18px; align-items: start; }
+  @media (max-width: 900px) { .sim { grid-template-columns: 1fr; } }
+  .col { display: flex; flex-direction: column; gap: 14px; align-items: center; }
+  .scr { position: relative; background: #000; border-radius: 10px; padding: 10px; box-shadow: inset 0 0 0 1px #222; }
+  .scr canvas { width: 100%; aspect-ratio: 1; display: block; }
+  .scr button.power { position: absolute; inset: 10px; background: rgba(5,8,15,.86); color: var(--txt); border: 1px solid var(--line); font-size: 17px; }
+  .kn { display: flex; flex-direction: column; align-items: center; gap: 4px; user-select: none; }
+  .kn .dial { width: 56px; height: 56px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #3a3f4a, #15181f 70%); box-shadow: 0 3px 8px #000a, inset 0 0 0 2px #2a2f3a; position: relative; cursor: ns-resize; touch-action: none; }
+  .kn.big .dial { width: 74px; height: 74px; }
+  .kn .dial::after { content: ""; position: absolute; left: 50%; top: 6px; width: 3px; height: 14px; margin-left: -1.5px; background: var(--cyan); border-radius: 2px; transform-origin: 50% calc(var(--r) - 6px); transform: rotate(var(--a, 0deg)); }
+  .kn .dial { --r: 28px; } .kn.big .dial { --r: 37px; }
+  .kn b { font-size: 11px; letter-spacing: .08em; color: var(--dim); }
+  .kn span { font-size: 12px; color: var(--txt); min-height: 1.2em; text-align: center; }
+  .knobs4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 18px; }
+  .btns { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  .pb { background: #1a1e27; color: var(--txt); border: 1px solid #2a3040; border-radius: 8px; padding: 10px 2px 6px; font: 700 12px inherit; position: relative; }
+  .pb small { display: block; font-weight: 500; font-size: 10px; color: var(--dim); margin-top: 3px; }
+  .pb::before { content: ""; position: absolute; top: 4px; left: 50%; width: 14px; height: 3px; margin-left: -7px; border-radius: 2px; background: #2a3040; }
+  .pb.on::before { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+  .pb.down { filter: brightness(1.5); }
+  .kbd { position: relative; height: 120px; margin-top: 18px; user-select: none; }
+  .kbd .k { position: absolute; border-radius: 6px; border: 1px solid #333; background: #e9eef7; color: #555; font: 600 10px inherit; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px; touch-action: none; }
+  .kbd .k.b { background: #1f2430; color: #8892a8; border-color: #3a4152; z-index: 1; }
+  .kbd .k.lit { background: var(--cyan) !important; color: #000; }
+  ul { margin: 6px 0 0; padding-left: 20px; } li { margin-bottom: 4px; }
+  .slist { list-style: none; margin: 10px 0 0; padding: 0; }
+  .slist li.row { display: grid; grid-template-columns: 26px minmax(110px, 1fr) 62px auto auto auto; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; }
+  .slist li.row:hover { background: #111829; }
+  .slist li.row.sel { background: #131c31; border-color: #2a3a5c; }
+  .slist li.row .n { color: var(--dim); font-size: 12px; text-align: right; font-variant-numeric: tabular-nums; }
+  .slist li.row input { background: #0a0f1c; color: var(--txt); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; font: inherit; text-transform: uppercase; width: 100%; }
+  .slist li.row .d { font-size: 13px; color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .slist li.row .d.cut { color: var(--amber); }
+  .slist li.empty { color: var(--dim); font-size: 14px; padding: 18px 8px; }
+  .seg { display: inline-flex; border: 1px solid #2a3248; border-radius: 999px; overflow: hidden; }
+  .seg button { font: 600 11px/1 inherit; border: 0; background: transparent; padding: 5px 8px; border-radius: 0; color: var(--dim); }
+  .seg button.on { background: var(--cyan); color: #06101a; }
+  .icon { border: 0; background: transparent; color: var(--dim); padding: 3px 6px; font-size: 15px; border-radius: 6px; }
+  .icon:hover { background: #1a2236; color: var(--txt); }
+  .sdetail { margin-top: 14px; background: #0a0f1c; border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px 16px; }
+  .sdetail h3 { margin: 0 0 10px; font-size: 16px; letter-spacing: .06em; }
+  canvas#wave { width: 100%; height: 150px; display: block; background: #000; border-radius: 8px; cursor: ew-resize; touch-action: none; }
+  .zoombar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0 4px; font-size: 13px; }
+  .zoombar button { padding: 4px 10px; background: transparent; color: var(--txt); border: 1px solid var(--line); }
+  .zoombar input[type=range] { flex: 1; min-width: 120px; accent-color: var(--cyan); }
+  .zoombar span { color: var(--dim); white-space: nowrap; }
+  .sknobs { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px 18px; margin-top: 12px; }
+  .sknobs label { display: grid; gap: 6px; font-size: 12px; font-weight: 600; letter-spacing: .04em; color: var(--dim); }
+  .sknobs label span { color: var(--cyan); font-weight: 400; }
+  .sknobs input[type=range] { accent-color: var(--cyan); width: 100%; }
+  .sknobs .check { display: flex; align-items: center; gap: 8px; }
+  .swarn { color: var(--amber); font-size: 13px; }
+  @media (max-width: 700px) { .slist li.row { grid-template-columns: 22px 1fr auto; } .slist li.row .seg, .slist li.row .d { grid-column: auto; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>VIRGO</h1>
+  <p class="sub">Un synth di onde gravitazionali per l’M-VAVE FM-1, di Mario Texture. Ogni nota è una coalescenza: due masse si avvitano (il chirp), si fondono e il buco nero che nasce suona come una campana (il ringdown). Versione __VERSION__.</p>
+
+
+  <section>
+    <h2>Simulatore</h2>
+    <p>Lo stesso codice di VIRGO che gira sull’FM-1, qui nel browser: suono, schermo, pagine, preset. I campioni che aggiungi qui sotto entrano subito nel simulatore (pagina CAMPIONE, pulsante SEQ), così li provi prima di mandarli all’FM-1. Manopole: trascina su e giù, rotella o frecce. Tastiera del computer: <kbd>A</kbd>…<kbd>K</kbd> le note (dal Do), <kbd>Z</kbd> <kbd>X</kbd> l’ottava, <kbd>Spazio</kbd> HOLD, <kbd>Invio</kbd> PLAY (RUN), <kbd>R</kbd> REC (un evento), <kbd>1</kbd>–<kbd>8</kbd> le pagine.</p>
+    <div class="sim">
+      <div class="col">
+        <div class="kn big" id="kMaster"></div>
+        <div class="kn big" id="kSelect"></div>
+        <div class="kn big" id="kPresets"></div>
+        <div class="kn big" id="kAlgo"></div>
+        <div style="display:flex;gap:8px"><button class="pb" type="button" id="b0">OCT−</button><button class="pb" type="button" id="b1">OCT+</button></div>
+      </div>
+      <div class="scr"><canvas id="lcd" width="240" height="240"></canvas><button class="power" id="power" type="button">Accendi il simulatore<br><small style="color:var(--dim);font-weight:400">il browser chiede un clic prima di far suonare qualcosa</small></button></div>
+      <div>
+        <div class="knobs4" id="k4"></div>
+        <div class="btns" id="btns"></div>
+        <p class="fine" style="margin-top:12px">I preset salvati nel simulatore restano in questo browser. Il carico audio (pagina MIDI, “AUDIO”) qui non si misura: sull’emulatore del chip è 2–3 ms su 5,8.</p>
+      </div>
+    </div>
+    <div class="kbd" id="kbd"></div>
+    <p class="note" id="simNote"></p>
+  </section>
+  <section>
+    <h2>Campioni (banca utente)</h2>
+    <p>VIRGO usa la stessa banca utente di GRANA 1.6, nella stessa zona dell’FM-1 (276 KB): se l’hai già mandata con GRANA, la trovi in VIRGO nella pagina CAMPIONE (SEQ). In VIRGO un campione può fare da <b>MATERIA</b> (colpisce i modi del ringdown, come un battente su una campana), da <b>PORTANTE</b> (diventa l’onda del chirp e sale con lei) o suonare nel <b>CIELO</b> come un anello lento.</p>
+    <p class="fine">L’editor è quello di GRANA: trascina i bordi sulla forma d’onda per tagliare, rotellina per lo zoom; guadagno, dissolvenze, normalizzazione; 22 o 11 kHz (metà spazio, più scuro). HIFI/LOFI conta per GRANA (in RAM a 16 o 8 bit); VIRGO carica sempre fino a 3,3 s da INIZIO. Il simulatore qui sopra riceve la banca a ogni modifica.</p>
+    <div class="actions">
+      <label class="btn ghost">Aggiungi file audio<input type="file" id="file" accept="audio/*,.wav,.aif,.aiff,.mp3,.flac,.ogg" multiple></label>
+      <label class="btn ghost">Apri una banca (.grnb)<input type="file" id="bopen" accept=".grnb,.bin"></label>
+      <button class="ghost" id="bsave" type="button">Salva la banca (.grnb)</button>
+      <button id="usend" type="button">Invia la banca utente all’FM-1</button>
+    </div>
+    <ul class="slist" id="ulist"></ul>
+    <div class="meter"><div class="fill" id="umeter"></div></div>
+    <p class="fine" id="umeterText"></p>
+    <div class="sdetail" id="detail"></div>
+    <p class="note" id="unote" role="status"></p>
+    <p class="fine">Inviare una banca nuova sostituisce quella che c’è (anche per GRANA). La banca resta in questo browser: la ritrovi alla prossima visita.</p>
+  </section>
+
+  <section>
+    <h2>Installa sull’FM-1</h2>
+    <p>Collega l’FM-1 via USB e usa Chrome o Edge. VIRGO sostituisce il firmware che c’è ora (per esempio GRANA): i preset di GRANA, i suoi campioni nella banca utente e le sue impostazioni restano in memoria e tornano quando reinstalli GRANA. VIRGO tiene i suoi preset in una zona propria.</p>
+    <p><label><input type="checkbox" id="withBt"> <b>VIRGO + Bluetooth</b>: l’FM-1 si collega da solo a un controller BLE-MIDI (SMC-Mixer, SMC-PAD…), pagina BLUETOOTH sotto GLO, come in GRANA.</label></p>
+    <div class="actions">
+      <button id="install" type="button">Installa VIRGO</button>
+      <button id="download" class="ghost" type="button">Scarica il pacchetto .fwsc</button>
+    </div>
+    <p class="warn" id="installWarn">⚠ Aggiornamento in corso: resta su questa scheda e non scollegare il cavo.</p>
+    <div class="progress" id="progress"><div class="fill" id="progressFill"></div></div>
+    <p class="note" id="installNote" role="status"></p>
+    <div class="actions" id="resumeBox" style="display:none"><button id="resumeStop" class="ghost" type="button">Smetti di aspettare</button></div>
+    <p class="fine">Il pacchetto si può provare prima nell’emulatore fm1-emu (“Open .fwsc…”). Se l’FM-1 resta nero dopo un’installazione interrotta: ricollega il cavo senza spegnerlo e premi di nuovo Installa; oppure tieni premuto OCT− mentre lo accendi (modalità di soccorso USB) e reinstalla. Il kit di pronto soccorso dell’editor di GRANA vale anche qui: rimette GRANA, poi da qui reinstalli VIRGO.</p>
+  </section>
+
+  <section>
+    <h2>Le pagine</h2>
+    <p>Le quattro manopole cambiano i parametri della pagina; SELECT scorre le pagine; ogni pulsante apre la sua. In alto: il preset, la pagina, i quattro eventi (azzurro inspiral, ambra fusione e ringdown, viola la coda) e, con il Bluetooth, la sua spia.</p>
+    <div class="shots" id="shots"></div>
+  </section>
+
+  <section class="grid2">
+    <div>
+      <h2>I comandi</h2>
+      <ul>
+        <li><b>Tasti</b>: un evento ciascuno, fino a 4 insieme. Il tasto è l’altezza del ringdown; il chirp parte PARTENZA ottave sotto e sale. Tenendo il tasto la CODA resta; lasciandolo si spegne.</li>
+        <li><b>HOME</b> SORGENTE, poi ARMONIA, poi FUSIONI; tenuto 0,6 s: HOLD (le code restano), di nuovo HOLD INFINITO (le code si fermano e non calano più), di nuovo spento. Anche il pedale di sustain (CC 64) fa HOLD.</li>
+        <li><b>SEL</b> CHIRP, FINALE, MOTORE · <b>EDIT</b> RINGDOWN · <b>FX</b> FILTRO, INTERFEROMETRO, RIVERBERO, SHIMMER, SPAZIO · <b>ENV</b> RUMORE, poi RADIO · <b>LFO</b> MOD A, MOD B, CIELO · <b>SEQ</b> CAMPIONE · <b>GLO</b> AUDIO, poi MIDI (e BLUETOOTH).</li>
+        <li><b>ARP</b> la pagina RUN, poi DÉJÀ VU (0.4: RUN si accende e si ferma con <b>PLAY</b>, da qualsiasi pagina). <b>REC</b> un evento a caso, subito.</li>
+        <li><b>ALGORITHM</b> il catalogo: rilevazioni vere (GW150914, GW170817 delle stelle di neutroni, GW190521, GW231123…) con le loro masse, rotazione e distanza, suonate sull’ultimo tasto.</li>
+        <li><b>PRESETS</b> e <b>SAVE</b> come in GRANA: 48 posti; in SAVE le manopole scrivono il nome (cursore, lettera, dado, cancella).</li>
+        <li><b>OCT− OCT+</b> l’ottava.</li>
+        <li><b>MIDI</b> (USB e presa TRS): note con velocity, CC 20–55 sui parametri nell’ordine delle pagine, Program Change per i preset, MIDI LEARN e clock in (RUN a tempo) dalla pagina MIDI.</li>
+        <li><b>SMC-Mixer</b> (con il Bluetooth): fader MASSA 1, MASSA 2, ROTAZIONE, DURATA, INDICE FM, FREQUENZA del filtro, RIVERBERO, VOLUME; manopole 1–4 la pagina, 5–8 ARMONICHE, SMORZAMENTO, SATURAZIONE, RISONANZA; SELECT 1–8 SORGENTE, ARMONIA, FUSIONI, CHIRP, MOTORE, RINGDOWN, FILTRO, RUN; PLAY/STOP RUN, REC un evento, BANK i preset; MUTE 1 HOLD, MUTE 2 HOLD INFINITO, MUTE 3–8 FINALE, RADIO, DÉJÀ VU, RIVERBERO, SHIMMER, SPAZIO.</li>
+      </ul>
+    </div>
+    <div>
+      <h2>La fisica dentro</h2>
+      <ul>
+        <li><b>Chirp</b>: la frequenza segue la legge della coalescenza, f ∝ (t<sub>fusione</sub> − t)<sup>−3/8</sup>, l’ampiezza f<sup>2/3</sup>. Le masse decidono la durata (attraverso la massa di chirp) e, se diverse, rinforzano i modi superiori (3,3), (4,4), (2,1): è ARMONICHE.</li>
+        <li><b>Due polarizzazioni</b>: h+ e h× vanno ai due lati; l’inclinazione oscilla con PRECESSIONE e il suono si muove nello stereo.</li>
+        <li><b>Ringdown</b>: i modi quasi-normali di un buco nero rotante, frequenze e smorzamenti dalle formule di Berti, Cardoso e Will (2006) secondo la ROTAZIONE. SMORZAMENTO allunga i Q (al 100% sono quelli fisici, cortissimi), ACCORDO li porta verso un accordo.</li>
+        <li><b>Interferometro</b>: due bracci a ritardo con le cavità di Fabry-Perot; l’onda stessa li allunga e accorcia in opposizione (ONDA), l’uscita è la differenza, come la “porta scura” di Virgo.</li>
+        <li><b>Rumore</b>: sismico in basso, termico con i modi “violino” delle sospensioni a 452 e 904 Hz, quantistico in alto, glitch: i difetti veri dei rivelatori.</li>
+        <li><b>Cielo</b>: binarie lontane che salgono piano, come le nane bianche che LISA sentirà a migliaia.</li>
+        <li><b>Armonia dalle masse</b> (0.2): il rapporto delle masse diventa un intervallo (uguali: unisono; 3:2 una quinta; 4:3 una quarta…) che suona come secondo modo; la ROTAZIONE può scegliere la scala (DA ROTAZIONE: dalla frigia, scura, alla lidia, luminosa, come un buco nero che gira sempre più forte). Il CHIRP può glissare, salire per i gradi della SCALA o per gli ARMONICI del tasto.</li>
+        <li><b>Fusioni gerarchiche</b> (0.2): negli ammassi stellari il buco nero nato da una fusione può fondersi di nuovo. Con GERARCHIA accesa ogni evento parte dal resto del precedente e l’accordo si muove nel Tonnetz: masse quasi uguali scambiano maggiore e minore (P), un po’ diverse spostano la terza (L), molto diverse vanno al relativo (R); la GRAVITÀ riporta a casa. Oltre 150 M☉ l’ammasso ricomincia.</li>
+        <li><b>FM dalla coalescenza</b> (0.2): i modi (2,2), (3,3), (4,4), (2,1) fanno da operatori; l’indice cresce come v² (la velocità orbitale) ed è massimo alla fusione. BINARIA: le due masse si modulano a vicenda; SPIRALE: una catena dai modi alti al fondamentale; ANELLO: il (2,2) su se stesso; CAMPANA: il ringdown come una campana FM. TONFO è il colpo della fusione, SUB l’ottava sotto del resto.</li>
+        <li><b>Filtro e modulazioni</b> (0.2): il filtro insegue la frequenza del chirp; la risonanza viene dal Q del ringdown; la DISTANZA lo chiude. Due modulazioni prendono strain, frequenza, inviluppo, fusione, precessione, orbita, LFO, caso o velocity e le mandano a indice, filtro, risonanza, saturazione, pan, pitch, ampiezza, interferometro o cielo.</li>
+        <li><b>TEMPO ORBITE 2:3</b> (RUN): due cicli che si incontrano come pianeti in risonanza orbitale, un poliritmo 2 contro 3.</li>
+        <li><b>I motori</b> (0.3), in MOTORE: <b>NEBULOSA</b>, cinque seghe senza aliasing che si stringono in una sola alla fusione e si riaprono nella coda (APERTURA); <b>PIEGA</b>, una sinusoide piegata come in un wavefolder West Coast: le pieghe crescono come v² verso la fusione e si richiudono con il ringdown, come un low pass gate (PIEGHE); <b>CORDA</b>, una corda Karplus-Strong accordata sulla nota: le armoniche del chirp la fanno cantare, la fusione la pizzica, i modi del buco nero la tengono viva (BRILLANZA); <b>VOCE</b>, due seghe in tre formanti: la vocale si apre u-o-a verso la fusione e si richiude dopo (VOCALE). Dopo la fusione ogni motore scivola sulla nota e segue l’inviluppo del ringdown; i modi del resto restano sotto, più piano.</li>
+        <li><b>Riverbero</b> (0.4): un plate di Dattorro più denso (sei diffusori in ingresso, quattro allpass in più nella vasca) e più lungo: CODA RIV. arriva a minuti. Pagina RIVERBERO (FX ×3, dalla 0.5): RIVERBERO, CODA RIV., DENSITÀ, BRILLANZA; MOVIMENTO (la vasca ondeggia: niente suono metallico nelle code lunghe) e PRE-DELAY fino a 100 ms sono nella pagina SHIMMER.</li>
+        <li><b>SHIMMER</b> (0.5, FX ×4): dentro la vasca del riverbero due testine leggono il suono trasposto e lo rimettono nel giro, così ogni ritorno sale (o scende) ancora. Cinque TIPI legati alla fisica: OTTAVA (sale di ottava, il classico), QUINTA, KERR (sale dell’intervallo fra i primi due modi del buco nero, che cambia con la ROTAZIONE), REDSHIFT (scende di ottava: la luce che si allunga allontanandosi), SPIRALE (sale per semitoni in una scala che gira, come l’orbita). La coda resta stabile anche al massimo.</li>
+        <li><b>AUDIO</b> (0.5, GLO): VOLUME, BPM, COMP/LIMIT (un compressore morbido che sale con la manopola; il limitatore finale a −1 dB è sempre acceso), STEREO (da MONO a LARGO; oltre, AUTOPAN da 0,05 a 8 Hz).</li>
+        <li><b>FINALE</b> (0.4, SEL ×2): la parte finale del chirp. FINALE piega il tempo (IMPROVVISO: resta in basso e scatta all’ultimo; DISTESO: arriva presto e si allunga in cima), PICCO alza o abbassa la frequenza della fusione (×0,5 … ×2), SOSPENSIONE tiene la cima fino a 8 s, APPRODO scivola dalla fusione alla nota (fino a 1,5 s). DURATA ora arriva a 3 minuti (oltre 100).</li>
+        <li><b>DÉJÀ VU</b> (0.4, ARP ×2): come in Marbles di Mutable Instruments, un anello di casualità. A sinistra del centro aumenta la probabilità che un evento ritorni invece di uno nuovo; al centro il giro è BLOCCATO e si ripete uguale; a destra lo stesso giro torna a salti. LUNGHEZZA 1–16 passi, DISPERSIONE quanto lontano vanno note, masse, distanze, rotazione; SU: solo RUN, o anche i tasti (le note sono tue, le sorgenti seguono il giro). Anche il ritmo di RUN ha il suo déjà vu.</li>
+        <li><b>RADIO</b> (0.4, ENV ×2): ogni evento ha la sua stazione sulla scala, secondo la massa di chirp (da 1 a 100 masse solari). Con SINTONIA lontana senti la statica, con i crepitii e l’evanescenza; avvicinandoti arriva il fischio del battimento e l’onda, stonata come una voce in onde corte; sulla stazione l’onda è trovata. SELETTIVITÀ è quanto è larga una stazione, STATICA il fruscio. Con RUN acceso è una caccia alle onde.</li>
+        <li><b>SPAZIO</b> (0.3, FX ×5): CORO, un ensemble a due voci incrociate che allarga tutto; ECO, un ping-pong a tempo (1/16 … 1/4.) che si scurisce a ogni ritorno, come un nastro.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>Crediti</h2>
+    <p class="fine">VIRGO è software libero (GPL-3.0), costruito su Dinghy (zvenson) e sulla piattaforma di Felucca (Leo Kuroshita, Hügelton Instruments) come GRANA. Bluetooth: lo stack di Optimist (w0ts, GPL-3.0 / MPL-2.0), la gestione dello SMC-Mixer da Hortator (DeadActive, GPL-3.0). Caratteri: Inter (Rasmus Andersson, SIL OFL 1.1). Modi quasi-normali: Berti, Cardoso, Will, Phys. Rev. D 73, 064030 (2006). Valori del catalogo arrotondati dai cataloghi GWTC di LIGO, Virgo e KAGRA. Non è affiliato con la collaborazione Virgo né con M-VAVE.</p>
+  </section>
+</main>
+<script id="worklet" type="text/plain">
+class Virgo extends AudioWorkletProcessor {
+  constructor() { super(); this.e = null; this.pos = 256; this.frames = 0; this.buf = null; this.last = -1; this.gen = -1; this.saves = -1; this.port.onmessage = (ev) => this.msg(ev.data); }
+  async msg(d) {
+    if (d.type === 'wasm') {
+      const { instance } = await WebAssembly.instantiate(d.bytes, {});
+      const e = instance.exports;
+      if (d.store && d.store.length === e.store_len()) new Uint8Array(e.memory.buffer, e.store(), e.store_len()).set(d.store);
+      const u = new Uint8Array(e.memory.buffer, e.ubank_buf(), e.ubank_size()); u.fill(0xFF); if (d.ubank) u.set(d.ubank.subarray(0, u.length));
+      e.init();
+      this.saves = new Uint8Array(e.memory.buffer, e.store(), 4)[3];
+      this.e = e;
+      this.port.postMessage({ type: 'ready' });
+      return;
+    }
+    const e = this.e;
+    if (!e) return;
+    if (d.type === 'keys') e.keys(d.mask >>> 0);
+    else if (d.type === 'button') e.button(d.id, d.down ? 1 : 0);
+    else if (d.type === 'enc') e.enc(d.id, d.d);
+    else if (d.type === 'midi') e.midi(d.st, d.d1, d.d2);
+    else if (d.type === 'master') e.master(d.q15);
+    else if (d.type === 'ubank') { const u = new Uint8Array(e.memory.buffer, e.ubank_buf(), e.ubank_size()); u.fill(0xFF); u.set(d.ubank.subarray(0, u.length)); e.bank_changed(); }
+  }
+  process(_in, outs) {
+    const o = outs[0], L = o[0], R = o[1] || o[0], e = this.e;
+    if (!e) return true;
+    for (let i = 0; i < L.length; i++) {
+      if (this.pos >= 256) { this.frames += 256; e.step(Math.floor(this.frames * 1000 / 44100) >>> 0); this.buf = new Int32Array(e.memory.buffer, e.audio(), 512); this.pos = 0; }
+      L[i] = this.buf[2 * this.pos] / 32768; R[i] = this.buf[2 * this.pos + 1] / 32768; this.pos++;
+    }
+    if (currentTime - this.last > 0.033) {
+      this.last = currentTime;
+      const g = e.fb_gen(), msg = { type: 'frame', leds: new Uint8Array(e.memory.buffer, e.leds(), 64).slice(), state: e.state() >>> 0 };
+      if (g !== this.gen) { this.gen = g; msg.fb = new Uint16Array(e.memory.buffer, e.fb(), 240 * 240).slice(); }
+      const st = new Uint8Array(e.memory.buffer, e.store(), e.store_len());
+      if (st[3] !== this.saves) { this.saves = st[3]; msg.store = st.slice(); }
+      this.port.postMessage(msg, msg.fb ? [msg.fb.buffer] : []);
+    }
+    return true;
+  }
+}
+registerProcessor('virgo', Virgo);
+</script>
+<script>
+"use strict";
+__OTA_JS__
+const $ = (id) => document.getElementById(id);
+const b64bytes = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+const PKG = { plain: "__PKG_B64__", bt: "__PKG_BT_B64__" };
+const PRODUCT = { plain: "__PRODUCT__", bt: "__PRODUCT_BT__" };
+const VERSION = "__VERSION__";
+const SHOTS = __SHOTS_JSON__;
+const TITLE0 = document.title;
+
+/* ---- the pages, as the firmware draws them (from VIRGO's own code on a computer) */
+const SHOT_TXT = {
+  sorgente: ['SORGENTE (HOME)', 'Lo spettrogramma: i chirp salgono, i modi del ringdown restano come righe. In alto a destra le due masse in orbita. MASSA 1, MASSA 2, ROTAZIONE, DISTANZA.'],
+  armonia: ['ARMONIA (HOME ×2)', 'Il cerchio delle note: la scala, la tonica, il triangolo dell’accordo in cui si trova la catena di fusioni e l’ultima trasformazione (P, L, R o G). INTERVALLO, SCALA, TONICA, CHIRP.'],
+  fusioni: ['FUSIONI (HOME ×3)', 'La catena gerarchica: ogni resto inghiotte l’evento dopo, con l’accordo che ne nasce; sotto la massa accumulata, fino a 150 M☉. GERARCHIA, GRAVITÀ, TONFO, SUB.'],
+  chirp: ['CHIRP (SEL)', 'La forma d’onda h(t): inspiral, fusione, ringdown; la linea bianca segue l’ultimo evento. DURATA, PARTENZA, ARMONICHE, PRECESSIONE.'],
+  motore: ['MOTORE (SEL ×2)', 'Il motore: ONDA e FM (i quattro modi come operatori, il grafo dell’algoritmo) oppure NEBULOSA, PIEGA, CORDA, VOCE, ciascuno con il suo disegno. Qui NEBULOSA: le cinque seghe. MOTORE, ALGORITMO, il knob del motore, SATURAZIONE.'],
+  ringdown: ['RINGDOWN (EDIT)', 'I picchi dei modi e il buco nero: l’anello di luce gira più in fretta con la rotazione. MODI, SMORZAMENTO, ACCORDO, CODA.'],
+  filtro: ['FILTRO (FX)', 'La risposta del filtro e, in ambra, dove si trova il chirp: il filtro lo insegue. TIPO, FREQUENZA, RISONANZA, DISTANZA.'],
+  interferometro: ['INTERFEROMETRO (FX ×2)', 'I due bracci da 3 km, le cavità, l’uscita. BRACCIO, FINESSE, ONDA, MIX.'],
+  rumore: ['RUMORE (ENV)', 'La curva di sensibilità con le sue tre parti, i glitch e il segnale con il suo SNR. SISMICO, TERMICO, QUANTISTICO, GLITCH.'],
+  moda: ['MOD A (LFO)', 'La sorgente che scorre, la quantità e quello che arriva alla destinazione. SORGENTE, DESTINAZIONE, QUANTITÀ, VEL. LFO.'],
+  modb: ['MOD B (LFO ×2)', 'La seconda modulazione. SORGENTE, DESTINAZIONE, QUANTITÀ, FORMA LFO.'],
+  cielo: ['CIELO (LFO ×3)', 'La galassia e, sotto, una riga per binaria. DENSITÀ, DERIVA, BANDA, LIVELLO.'],
+  run: ['RUN (ARP)', 'Il catalogo degli eventi che arrivano da soli e lo spettrogramma in diretta. TASSO, MASSE, DISTANZE, TEMPO.'],
+  campione: ['CAMPIONE (SEQ)', 'Il campione della banca utente e il pezzo in memoria. SUONO, USO, LIVELLO, INIZIO.'],
+  mix: ['AUDIO (GLO)', 'I livelli, la riduzione del compressore, il campo stereo con il punto dell’autopan, il tempo. VOLUME, BPM, COMP/LIMIT, STEREO.'],
+  finale: ['FINALE (SEL ×2)', 'La frequenza nella parte finale del chirp: la curva piegata da FINALE, la cima tenuta (SOSPENSIONE), lo scivolo verso la nota (APPRODO). FINALE, PICCO, SOSPENSIONE, APPRODO.'],
+  riverbero: ['RIVERBERO (FX ×3)', 'Le riflessioni, più fitte con DENSITÀ, e la coda: il T60 stimato in alto. RIVERBERO, CODA RIV., DENSITÀ, BRILLANZA.'],
+  shimmer: ['SHIMMER (FX ×4)', 'Ogni giro della vasca sposta il suono: i gradini salgono (o scendono, con REDSHIFT) secondo il TIPO. SHIMMER, TIPO, MOVIMENTO, PRE-DELAY.'],
+  deja: ['DÉJÀ VU (ARP ×2)', 'L’anello dei passi: il punto bianco è dove si trova; a destra se ritorna, è bloccato o salta. DÉJÀ VU, LUNGHEZZA, DISPERSIONE, SU.'],
+  radio: ['RADIO (ENV ×2)', 'La scala per massa di chirp, le stazioni degli eventi (bianche quelle che suonano), l’ago rosso, il segnale: RUMORE, QUASI, ONDA TROVATA. RADIO, SINTONIA, SELETTIVITÀ, STATICA.'],
+  spazio: ['SPAZIO (FX ×5)', 'Il CORO: le due voci che ondeggiano; l’ECO: i ritorni a sinistra e a destra, sempre più bassi. CORO, ECO, TEMPO ECO, RITORNO.'],
+  midi: ['MIDI (GLO ×2)', 'CLOCK, RICEVI, LEARN, CANCELLA (OCT+ conferma).'],
+};
+for (const [k, b] of Object.entries(SHOTS)) {
+  const d = document.createElement('div'); d.className = 'shot';
+  const t = SHOT_TXT[k] || [k, ''];
+  d.innerHTML = `<img alt="${t[0]}" src="data:image/png;base64,${b}"><h3>${t[0]}</h3><p>${t[1]}</p>`;
+  $('shots').appendChild(d);
+}
+
+/* ---- install */
+function logicalImage(raw) {                /* the package without its 20 identity bytes: what the FM-1 reads */
+  const out = new Uint8Array(raw.length - 20);
+  for (let i = 0; i < 20; i++) out.set(raw.subarray(i * 0x30, i * 0x30 + 0x2F), i * 0x2F);
+  out.set(raw.subarray(20 * 0x30), 20 * 0x2F);
+  return out;
+}
+const which = () => ($('withBt').checked ? 'bt' : 'plain');
+const inote = (t) => { $('installNote').textContent = t; };
+$('download').addEventListener('click', () => {
+  const w = which(), a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([b64bytes(PKG[w])], { type: 'application/octet-stream' }));
+  a.download = `virgo-${VERSION}${w === 'bt' ? '-bluetooth' : ''}.fwsc`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+});
+const ERR = {
+  notfound: 'Non trovo l’FM-1. Collegalo via USB, accendilo e chiudi le altre app che lo usano (DAW, editor), poi riprova.',
+  model: 'Il dispositivo collegato non è un FM-1.',
+  stopped: 'L’FM-1 si è fermato durante l’aggiornamento. Riprova: se era già in modalità aggiornamento, la scrittura riprende da sola.',
+  lost: 'Il collegamento si è interrotto. Ricollega il cavo e premi di nuovo Installa: la scrittura riprende da dove era.',
+  noloader: 'Il caricatore di aggiornamento non è comparso. Scollega e ricollega il cavo, poi premi di nuovo Installa.',
+  noreturn: 'L’FM-1 non si è riavviato da solo: spegnilo e riaccendilo.',
+  mismatch: 'Installato, ma l’FM-1 riporta un firmware diverso.',
+  badreq: 'L’FM-1 ha chiesto dati fuori dal pacchetto: l’aggiornamento è stato fermato.',
+};
+let installing = false;
+$('install').addEventListener('click', async () => {
+  if (installing) return;
+  const w = which(), pkg = b64bytes(PKG[w]), product = PRODUCT[w];
+  if (!navigator.requestMIDIAccess) { inote('Questo browser non può parlare con l’FM-1 via USB: usa Chrome o Edge, oppure scarica il pacchetto.'); return; }
+  let others = [];
+  try {
+    const a0 = await navigator.requestMIDIAccess({ sysex: true });
+    others = [...a0.inputs.values()].filter((i) => i.state !== 'disconnected' && !/fm-1|felucca|ota-|sinco|composite|usb-midi/i.test(i.name || '')).map((i) => i.name);
+  } catch (_) { inote('Il browser non ha dato il permesso per l’USB-MIDI (SysEx): consentilo e riprova.'); return; }
+  if (others.length && !confirm(`Sono collegati altri dispositivi MIDI: ${others.join(', ')}.\n\nMeglio scollegarli PRIMA di installare. Continuo lo stesso?`)) return;
+  if (!confirm(`Installare VIRGO ${VERSION}${w === 'bt' ? ' + Bluetooth' : ''} sull’FM-1 collegato?\n\nIl firmware attuale viene sostituito; i dati di GRANA restano in memoria.\n\nFinché non è finito (circa due minuti): non scollegare il cavo, non toccare altri dispositivi USB o MIDI e RESTA SU QUESTA SCHEDA.`)) return;
+  installing = true;
+  $('install').disabled = $('download').disabled = true;
+  const bar = $('progress'), fill = $('progressFill');
+  bar.style.display = 'block'; fill.style.width = '0';
+  const image = logicalImage(pkg), total = Math.ceil(image.length / 512);
+  const step = (s, x) => {
+    if (s === 'start') inote(`Trovato ${x}: preparo l’aggiornamento…`);
+    else if (s === 'verify') inote(`L’FM-1 controlla il pacchetto (${x})…`);
+    else if (s === 'loader') inote('Si avvia il caricatore di aggiornamento…');
+    else if (s === 'write') { const p = Math.min(100, x / total * 100); fill.style.width = p + '%'; inote(`Scrittura: ${Math.round(p)}%`); }
+    else if (s === 'reboot') inote('Fatto, l’FM-1 si riavvia…');
+    else if (s === 'done') { fill.style.width = '100%'; inote(`Installato: l’FM-1 ora esegue ${x}. Buon ascolto dell’universo.`); }
+  };
+  let access = null, wake = null;
+  const away = () => { document.title = document.hidden ? '⚠ AGGIORNAMENTO IN CORSO – torna qui' : TITLE0; };
+  const leave = (e) => { e.preventDefault(); e.returnValue = ''; };
+  document.addEventListener('visibilitychange', away);
+  window.addEventListener('beforeunload', leave);
+  $('installWarn').style.display = 'block';
+  try { if (navigator.wakeLock) wake = await navigator.wakeLock.request('screen'); } catch (_) {}
+  try {
+    access = await navigator.requestMIDIAccess({ sysex: true });
+    const up = new Updater(access, () => {});
+    if (!(await up.resume(image, step, product))) await up.install(image, product, step);
+  } catch (err) {
+    inote(err && err.code ? ERR[err.code] || err.message : 'Il browser non ha dato il permesso per l’USB-MIDI (SysEx): consentilo e riprova.');
+    if (access && err && ['lost', 'stopped', 'noloader', 'noreturn'].includes(err.code)) await waitAndResume(access, image, step, product);
+  } finally {
+    installing = false;
+    $('install').disabled = $('download').disabled = false;
+    document.removeEventListener('visibilitychange', away);
+    window.removeEventListener('beforeunload', leave);
+    document.title = TITLE0;
+    $('installWarn').style.display = 'none';
+    try { if (wake) await wake.release(); } catch (_) {}
+  }
+});
+let resumeCancel = false;
+$('resumeStop').addEventListener('click', () => { resumeCancel = true; });
+async function waitAndResume(access, image, step, product) {
+  resumeCancel = false;
+  $('resumeBox').style.display = 'flex';
+  const t0 = Date.now();
+  try {
+    while (!resumeCancel && Date.now() - t0 < 600000) {
+      inote(`In attesa dell’FM-1: ricollega il cavo SENZA spegnerlo; appena ricompare riprendo da solo (ancora ${Math.ceil((600000 - (Date.now() - t0)) / 60000)} min).`);
+      await new Promise((r) => setTimeout(r, 3000));
+      try { const up = new Updater(access, () => {}); if (await up.resume(image, step, product)) return; }
+      catch (err) { if (err && err.code === 'mismatch') { inote(ERR.mismatch); return; } }
+    }
+    inote(resumeCancel ? 'Attesa interrotta.' : 'L’FM-1 non è ricomparso: tieni premuto OCT− mentre lo accendi e reinstalla.');
+  } finally { $('resumeBox').style.display = 'none'; }
+}
+
+/* ---- the user bank: the same as GRANA 1.6's (grana.c / virgo_panel.c ub_sysex, tools/make_samples.py bank_build) */
+const SR = 22050, UB_ROOM = 0x45000, HDR = [0xF0, 0x7D, 0x47, 0x52];
+const STEP = [7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 31, 34, 37, 41, 45, 50, 55, 60, 66, 73, 80, 88,
+  97, 107, 118, 130, 143, 157, 173, 190, 209, 230, 253, 279, 307, 337, 371, 408, 449, 494, 544, 598, 658,
+  724, 796, 876, 963, 1060, 1166, 1282, 1411, 1552, 1707, 1878, 2066, 2272, 2499, 2749, 3024, 3327, 3660,
+  4026, 4428, 4871, 5358, 5894, 6484, 7132, 7845, 8630, 9493, 10442, 11487, 12635, 13899, 15289, 16818,
+  18500, 20350, 22385, 24623, 27086, 29794, 32767];
+const IDXT = [-1, -1, -1, -1, 2, 4, 6, 8];
+function adpcmEncode(pcm) {
+  const out = new Uint8Array((pcm.length + 1) >> 1);
+  let pred = 0, idx = 0;
+  for (let i = 0; i < pcm.length; i++) {
+    const st = STEP[idx];
+    let d = pcm[i] - pred, code = 0, diff = st >> 3;
+    if (d < 0) { code = 8; d = -d; }
+    if (d >= st) { code |= 4; d -= st; diff += st; }
+    if (d >= st >> 1) { code |= 2; d -= st >> 1; diff += st >> 1; }
+    if (d >= st >> 2) { code |= 1; diff += st >> 2; }
+    pred = code & 8 ? pred - diff : pred + diff;
+    pred = Math.max(-32768, Math.min(32767, pred));
+    idx = Math.max(0, Math.min(88, idx + IDXT[code & 7]));
+    out[i >> 1] |= code << ((i & 1) * 4);
+  }
+  return out;
+}
+const CRC32T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u) { let c = 0xFFFFFFFF; for (let i = 0; i < u.length; i++) c = CRC32T[(c ^ u[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+const MAX_HIFI = 101902, MAX_LOFI = 203806, BANK_MAX = 48, VIRGO_MAX = 72765;   /* GRANA's RAM; VIRGO loads 3,3 s */
+function adpcmDecode(data, n, lofi) {
+  const out = new Int16Array(n);
+  let pred = 0, idx = 0;
+  for (let i = 0; i < n; i++) {
+    const code = (data[i >> 1] >> ((i & 1) * 4)) & 15, st = STEP[idx];
+    let diff = st >> 3;
+    if (code & 4) diff += st;
+    if (code & 2) diff += st >> 1;
+    if (code & 1) diff += st >> 2;
+    pred = code & 8 ? pred - diff : pred + diff;
+    pred = Math.max(-32768, Math.min(32767, pred));
+    idx = Math.max(0, Math.min(88, idx + IDXT[code & 7]));
+    out[i] = lofi ? (pred >> 8) * 256 : pred;
+  }
+  return out;
+}
+function bankPack(entries) {                 /* [{name, frames, mode, rate, data}] -> "GRNB" */
+  let size = 16 + 24 * entries.length;
+  for (const e of entries) size += e.data.length + (e.data.length & 1);
+  const b = new Uint8Array(size), v = new DataView(b.buffer);
+  let off = 16 + 24 * entries.length;
+  entries.forEach((e, i) => {
+    const o = 16 + 24 * i;
+    for (let k = 0; k < 12 && k < e.name.length; k++) b[o + k] = e.name.charCodeAt(k) & 0x7F;
+    v.setUint32(o + 12, off, true); v.setUint32(o + 16, e.frames, true); b[o + 20] = e.mode; b[o + 21] = e.rate ? 1 : 0;
+    b.set(e.data, off);
+    off += e.data.length + (e.data.length & 1);
+  });
+  b.set([0x47, 0x52, 0x4E, 0x42], 0);
+  v.setUint16(4, 1, true); v.setUint16(6, entries.length, true); v.setUint32(8, size, true);
+  v.setUint32(12, crc32(b.subarray(16)), true);
+  return b;
+}
+function bankParse(b) {
+  if (b.length < 16 || b[0] !== 0x47 || b[1] !== 0x52 || b[2] !== 0x4E || b[3] !== 0x42) throw new Error('non è una banca GRANA/VIRGO');
+  const v = new DataView(b.buffer, b.byteOffset, b.byteLength), n = v.getUint16(6, true), out = [];
+  for (let i = 0; i < n; i++) {
+    const o = 16 + 24 * i;
+    let name = ''; for (let k = 0; k < 12 && b[o + k]; k++) name += String.fromCharCode(b[o + k]);
+    const off = v.getUint32(o + 12, true), frames = v.getUint32(o + 16, true);
+    out.push({ name, frames, mode: b[o + 20], rate: b[o + 21] === 1 ? 1 : 0, data: b.slice(off, off + ((frames + 1) >> 1)) });
+  }
+  return out;
+}
+const adpcmBytes = (frames) => { const n = (frames + 1) >> 1; return n + (n & 1); };
+
+/* the items: the sound as it came (src, 22050 Hz int16) and what you did to it (GRANA 1.6's editor) */
+let items = [], sel = -1, uid = 1;
+function up2(p) { const o = new Int16Array(p.length * 2); for (let i = 0; i < p.length; i++) { o[2 * i] = p[i]; o[2 * i + 1] = i + 1 < p.length ? (p[i] + p[i + 1]) >> 1 : p[i]; } return o; }
+const HB = (() => {                          /* a half-band low-pass, 31 taps, for 22050 -> 11025 */
+  const n = 31, c = 15, h = new Float32Array(n); let s = 0;
+  for (let k = 0; k < n; k++) { const x = k - c, w = 0.42 - 0.5 * Math.cos(2 * Math.PI * k / (n - 1)) + 0.08 * Math.cos(4 * Math.PI * k / (n - 1));
+    h[k] = (x === 0 ? 0.5 : Math.sin(Math.PI * x / 2) / (Math.PI * x)) * w; s += h[k]; }
+  for (let k = 0; k < n; k++) h[k] /= s;
+  return h;
+})();
+function down2(p) {
+  const n = (p.length + 1) >> 1, o = new Int16Array(n);
+  for (let i = 0; i < n; i++) { let a = 0; for (let k = 0; k < HB.length; k++) { const j = 2 * i + k - 15; if (j >= 0 && j < p.length) a += p[j] * HB[k]; } o[i] = Math.max(-32767, Math.min(32767, Math.round(a))); }
+  return o;
+}
+function itemFromBank(e) {
+  const raw = adpcmDecode(e.data, e.frames, false), src = e.rate ? up2(raw) : raw;
+  return { id: uid++, name: e.name, mode: e.mode, rate: e.rate || 0, src, trimA: 0, trimB: src.length,
+    gain: 0, norm: false, fadeIn: 0, fadeOut: 0, orig: e.data, origRate: e.rate || 0, origFrames: e.frames, cache: null };
+}
+function itemLen(it) { return Math.max(0, it.trimB - it.trimA); }
+function itemFrames(it) { const n = itemLen(it); return it.rate ? (n + 1) >> 1 : n; }
+function itemEncoded(it) {                   /* -> {frames, data}; an untouched one keeps its own bytes */
+  if (it.cache) return it.cache;
+  const n = itemLen(it);
+  if (it.orig && it.rate === it.origRate && it.trimA === 0 && it.trimB === it.src.length && !it.gain && !it.norm && !it.fadeIn && !it.fadeOut) return (it.cache = { frames: it.origFrames, data: it.orig });
+  const f = new Float32Array(n);
+  let pk = 0;
+  for (let i = 0; i < n; i++) { f[i] = it.src[it.trimA + i] / 32768; pk = Math.max(pk, Math.abs(f[i])); }
+  let g = Math.pow(10, it.gain / 20);
+  if (it.norm && pk > 0) g = 0.89 / pk * Math.pow(10, it.gain / 20);
+  const fi = Math.round(it.fadeIn * SR / 1000), fo = Math.round(it.fadeOut * SR / 1000), pcm = new Int16Array(n);
+  for (let i = 0; i < n; i++) {
+    let x = f[i] * g;
+    if (i < fi) x *= i / fi;
+    if (i >= n - fo) x *= (n - 1 - i) / fo;
+    pcm[i] = Math.max(-32767, Math.min(32767, Math.round(x * 32767)));
+  }
+  const st = it.rate ? down2(pcm) : pcm;
+  return (it.cache = { frames: st.length, data: adpcmEncode(st) });
+}
+function bankBuild() { return bankPack(items.map((it) => { const e = itemEncoded(it); return { name: it.name, frames: e.frames, mode: it.mode, rate: it.rate, data: e.data }; })); }
+function bankSize() { return 16 + items.reduce((s, it) => s + 24 + adpcmBytes(itemFrames(it)), 0); }
+const secs = (frames) => (frames / SR).toFixed(1).replace('.', ',') + ' s';
+function cleanName(s) { return s.replace(/\.[^.]+$/, '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9 \-_']/g, '').trim().slice(0, 12) || 'SUONO'; }
+function note(t) { $('unote').textContent = t; }
+
+function meter() {
+  const used = bankSize(), left = Math.max(0, UB_ROOM - used), sec = items.reduce((a, it) => a + itemLen(it), 0);
+  $('umeter').style.width = Math.min(100, used / UB_ROOM * 100) + '%';
+  $('umeter').style.background = used > UB_ROOM ? 'var(--red)' : '';
+  $('umeterText').textContent = !items.length ? 'Vuota.' : used > UB_ROOM
+    ? `La banca supera lo spazio di ${Math.ceil((used - UB_ROOM) / 1024)} KB: accorcia, togli qualcosa o passa dei campioni a 11 kHz.`
+    : `${items.length} campioni, ${secs(sec)} in tutto (${Math.round(used / 1024)} di ${Math.round(UB_ROOM / 1024)} KB); restano circa ${(left * 2 / SR).toFixed(1).replace('.', ',')} s a 22 kHz o ${(left * 4 / SR).toFixed(1).replace('.', ',')} s a 11 kHz`;
+}
+function render() { renderList(); renderDetail(); }
+function renderList() {
+  const ul = $('ulist');
+  ul.innerHTML = '';
+  items.forEach((it, i) => {
+    const li = document.createElement('li'), n = itemFrames(it), long = it.rate ? n * 2 > VIRGO_MAX * 2 : n > VIRGO_MAX;
+    li.className = 'row' + (i === sel ? ' sel' : '');
+    li.dataset.i = i;
+    li.innerHTML = `<span class="n">${i + 1}</span><input value="${it.name}" maxlength="12" aria-label="Nome del campione ${i + 1}">` +
+      `<span class="d${long ? ' cut' : ''}" title="${long ? 'VIRGO ne carica 3,3 s da INIZIO' : ''}">${secs(itemLen(it))}</span>` +
+      `<span class="seg" role="group" aria-label="Modo (GRANA)"><button type="button" class="${it.mode ? '' : 'on'}">HIFI</button><button type="button" class="${it.mode ? 'on' : ''}">LOFI</button></span>` +
+      `<span class="seg" role="group" aria-label="Frequenza"><button type="button" class="${it.rate ? '' : 'on'}">22K</button><button type="button" class="${it.rate ? 'on' : ''}">11K</button></span>` +
+      `<span><button class="icon" type="button" title="Ascolta">▶</button><button class="icon" type="button" title="Su">↑</button><button class="icon" type="button" title="Giù">↓</button><button class="icon" type="button" title="Togli">✕</button></span>`;
+    li.addEventListener('click', (e) => { if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') select(i); });
+    const inp = li.querySelector('input');
+    inp.addEventListener('focus', () => { if (sel !== i) select(i); });
+    inp.addEventListener('input', () => { it.name = cleanName(inp.value); changed(false); });
+    inp.addEventListener('change', () => { inp.value = it.name; renderDetail(); });
+    const [hifi, lofi, r22, r11] = li.querySelectorAll('.seg button');
+    hifi.addEventListener('click', () => { it.mode = 0; changed(); });
+    lofi.addEventListener('click', () => { it.mode = 1; changed(); });
+    r22.addEventListener('click', () => { if (it.rate) { it.rate = 0; it.cache = null; changed(); } });
+    r11.addEventListener('click', () => { if (!it.rate) { it.rate = 1; it.cache = null; changed(); } });
+    const [plB, upB, dnB, rmB] = li.querySelectorAll('.icon');
+    plB.addEventListener('click', () => listen(it));
+    upB.addEventListener('click', () => { if (i > 0) { [items[i - 1], items[i]] = [items[i], items[i - 1]]; sel = i - 1; changed(); } });
+    dnB.addEventListener('click', () => { if (i < items.length - 1) { [items[i + 1], items[i]] = [items[i], items[i + 1]]; sel = i + 1; changed(); } });
+    rmB.addEventListener('click', () => { items.splice(i, 1); sel = Math.min(sel, items.length - 1); changed(); });
+    ul.appendChild(li);
+  });
+  if (!items.length) ul.innerHTML = '<li class="empty">Nessun campione: aggiungine uno o più (verranno resi mono), o apri una banca.</li>';
+  meter();
+}
+function markSel() { document.querySelectorAll('#ulist li.row').forEach((li) => li.classList.toggle('sel', +li.dataset.i === sel)); }
+function select(i) { sel = i; markSel(); renderDetail(); }
+
+let dragging = null, zoom = null;
+function renderDetail() {
+  const d = $('detail'), it = items[sel];
+  if (!it) { d.innerHTML = '<p class="fine" style="margin:0">Scegli un campione dalla lista per tagliarlo e ascoltarlo.</p>'; return; }
+  d.innerHTML = `<h3>${sel + 1}. ${it.name}</h3>
+    <canvas id="wave" width="1200" height="300" aria-label="Forma d’onda: trascina i bordi per tagliare, rotellina per lo zoom"></canvas>
+    <div class="zoombar">
+      <button type="button" id="zIn" title="Ingrandisci (anche con la rotellina)">Zoom +</button>
+      <button type="button" id="zOut">Zoom −</button>
+      <button type="button" id="zAll">Tutto</button>
+      <button type="button" id="zA">Vai all’inizio</button>
+      <button type="button" id="zB">Vai alla fine</button>
+      <input id="zPan" type="range" min="0" max="0" value="0" aria-label="Scorri la forma d’onda">
+      <span id="zInfo"></span>
+    </div>
+    <div class="sknobs">
+      <label>INIZIO <span id="vA"></span><input id="kA" type="range" min="0" max="${it.src.length}" value="${it.trimA}"></label>
+      <label>FINE <span id="vB"></span><input id="kB" type="range" min="0" max="${it.src.length}" value="${it.trimB}"></label>
+      <label>GUADAGNO <span id="vG"></span><input id="kG" type="range" min="-18" max="18" step="0.5" value="${it.gain}"></label>
+      <label>DISSOLVENZA IN ENTRATA <span id="vI"></span><input id="kI" type="range" min="0" max="1000" step="5" value="${it.fadeIn}"></label>
+      <label>DISSOLVENZA IN USCITA <span id="vO"></span><input id="kO" type="range" min="0" max="1000" step="5" value="${it.fadeOut}"></label>
+      <label class="check"><input id="kN" type="checkbox" ${it.norm ? 'checked' : ''}> NORMALIZZA A −1 dB</label>
+    </div>
+    <div class="actions"><button type="button" id="listen">▶ Ascolta come sull’FM-1</button><span class="swarn" id="warn"></span></div>`;
+  const upd = () => {
+    $('vA').textContent = secs(it.trimA); $('vB').textContent = secs(it.trimB);
+    $('vG').textContent = (it.gain > 0 ? '+' : '') + it.gain.toString().replace('.', ',') + ' dB';
+    $('vI').textContent = it.fadeIn + ' ms'; $('vO').textContent = it.fadeOut + ' ms';
+    const n = itemLen(it), max = it.mode ? MAX_LOFI : MAX_HIFI;
+    $('warn').textContent = (n > VIRGO_MAX ? `VIRGO ne carica 3,3 s a partire da INIZIO (pagina CAMPIONE). ` : '') +
+      (itemFrames(it) > max ? `In GRANA (${it.mode ? 'LOFI' : 'HIFI'}) si granula un pezzo alla volta.` : '');
+    drawWave();
+  };
+  const bind = (id, key, num = true) => $(id).addEventListener('input', (e) => {
+    it[key] = num ? +e.target.value : e.target.checked;
+    if (it.trimB < it.trimA + 64) { if (key === 'trimA') it.trimA = Math.max(0, it.trimB - 64); else it.trimB = Math.min(it.src.length, it.trimA + 64); }
+    upd(); changed(false);
+  });
+  bind('kA', 'trimA'); bind('kB', 'trimB'); bind('kG', 'gain'); bind('kI', 'fadeIn'); bind('kO', 'fadeOut'); bind('kN', 'norm', false);
+  $('listen').addEventListener('click', () => listen(it));
+  const cv = $('wave');
+  if (!zoom || zoom.it !== it) zoom = { it, a: 0, b: it.src.length };
+  const fx = (e) => { const r = cv.getBoundingClientRect(); return Math.max(0, Math.min(it.src.length, Math.round(zoom.a + (e.clientX - r.left) / r.width * (zoom.b - zoom.a)))); };
+  const zoomAt = (c, k) => {
+    const n = it.src.length, w = zoom.b - zoom.a, nw = Math.max(Math.min(48, n), Math.min(n, Math.round(w * k)));
+    let a = Math.round(c - (c - zoom.a) * nw / w);
+    a = Math.max(0, Math.min(n - nw, a));
+    zoom.a = a; zoom.b = a + nw; drawWave();
+  };
+  const around = (c) => { const n = it.src.length, w = Math.max(Math.min(256, n), Math.min(n, Math.round(n / 40))); zoom.a = Math.max(0, Math.min(n - w, c - (w >> 1))); zoom.b = zoom.a + w; drawWave(); };
+  cv.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+      const w = zoom.b - zoom.a, dd = Math.round((e.deltaX || e.deltaY) / 400 * w);
+      zoom.a = Math.max(0, Math.min(it.src.length - w, zoom.a + dd)); zoom.b = zoom.a + w; drawWave(); return;
+    }
+    zoomAt(fx(e), e.deltaY > 0 ? 1.25 : 0.8);
+  }, { passive: false });
+  $('zIn').addEventListener('click', () => zoomAt((zoom.a + zoom.b) >> 1, 0.5));
+  $('zOut').addEventListener('click', () => zoomAt((zoom.a + zoom.b) >> 1, 2));
+  $('zAll').addEventListener('click', () => { zoom.a = 0; zoom.b = it.src.length; drawWave(); });
+  $('zA').addEventListener('click', () => around(it.trimA));
+  $('zB').addEventListener('click', () => around(it.trimB));
+  $('zPan').addEventListener('input', (e) => { const w = zoom.b - zoom.a; zoom.a = +e.target.value; zoom.b = zoom.a + w; drawWave(); });
+  cv.addEventListener('pointerdown', (e) => {
+    const x = fx(e);
+    dragging = Math.abs(x - it.trimA) < Math.abs(x - it.trimB) ? 'trimA' : 'trimB';
+    cv.setPointerCapture(e.pointerId);
+    cv.dispatchEvent(new PointerEvent('pointermove', e));
+  });
+  cv.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const x = fx(e);
+    if (dragging === 'trimA') it.trimA = Math.min(x, it.trimB - 64); else it.trimB = Math.max(x, it.trimA + 64);
+    $('kA').value = it.trimA; $('kB').value = it.trimB;
+    upd(); changed(false);
+  });
+  cv.addEventListener('pointerup', () => { dragging = null; });
+  upd();
+}
+function drawWave() {
+  const it = items[sel], cv = $('wave');
+  if (!it || !cv) return;
+  const g = cv.getContext('2d'), W = cv.width, H = cv.height, n = it.src.length, vmax = VIRGO_MAX;
+  if (!zoom || zoom.it !== it) zoom = { it, a: 0, b: n };
+  if (zoom.b > n) { zoom.b = n; zoom.a = Math.max(0, Math.min(zoom.a, n - 256)); }
+  const va = zoom.a, vw = Math.max(1, zoom.b - zoom.a), X = (f) => (f - va) / vw * W;
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+  const xa = X(it.trimA), xb = X(it.trimB), xm = X(Math.min(it.trimB, it.trimA + vmax));
+  g.fillStyle = '#0f1a2c'; g.fillRect(xa, 0, xm - xa, H);
+  if (xb > xm) { g.fillStyle = '#16122a'; g.fillRect(xm, 0, xb - xm, H); }
+  g.fillStyle = '#ffffff10'; g.fillRect(0, H / 2, W, 1);
+  const fpp = vw / W;
+  if (fpp < 1) {
+    g.strokeStyle = '#6fe3ff'; g.lineWidth = 2; g.beginPath();
+    for (let i = Math.max(0, va - 1); i <= Math.min(n - 1, va + vw + 1); i++) {
+      const x = X(i), y = H / 2 - it.src[i] / 32768 * (H / 2 - 4);
+      if (i === Math.max(0, va - 1)) g.moveTo(x, y); else g.lineTo(x, y);
+    }
+    g.stroke();
+    if (fpp < 0.25) { g.fillStyle = '#dfe8f8'; for (let i = va; i < va + vw && i < n; i++) g.fillRect(X(i) - 2, H / 2 - it.src[i] / 32768 * (H / 2 - 4) - 2, 4, 4); }
+  } else for (let x = 0; x < W; x++) {
+    const a = Math.floor(va + x * fpp), b = Math.max(a + 1, Math.floor(va + (x + 1) * fpp)), st = Math.max(1, Math.floor((b - a) / 64));
+    let lo = 0, hi = 0; for (let i = a; i < b && i < n; i += st) { const v = it.src[i]; if (v < lo) lo = v; if (v > hi) hi = v; }
+    const sc = (H / 2 - 4) / 32768, fr = va + x * fpp, inside = fr >= it.trimA && fr < it.trimB;
+    g.fillStyle = inside ? (fr < Math.min(it.trimB, it.trimA + vmax) ? '#6fe3ff' : '#b28cff') : '#3a4458';
+    g.fillRect(x, H / 2 - hi * sc, 1, (hi - lo) * sc + 1);
+  }
+  g.fillStyle = '#dfe8f8';
+  if (xa >= -2 && xa <= W + 2) g.fillRect(xa - 1, 0, 3, H);
+  if (xb >= -2 && xb <= W + 2) g.fillRect(xb - 1, 0, 3, H);
+  if (xm < xb - 2 && xm > 0 && xm < W) { g.fillStyle = '#b28cff'; g.fillRect(xm, 0, 1, H); g.font = '22px system-ui'; g.fillText('3,3 s', xm + 6, 26); }
+  const pan = $('zPan'), info = $('zInfo');
+  if (pan) { pan.max = Math.max(0, n - vw); pan.value = va; pan.disabled = vw >= n; }
+  if (info) info.textContent = vw >= n ? 'tutto il campione' : `×${(n / vw).toFixed(n / vw < 10 ? 1 : 0).replace('.', ',')}  ${(va / SR).toFixed(3).replace('.', ',')} – ${((va + vw) / SR).toFixed(3).replace('.', ',')} s`;
+}
+let actx = null, preview = null;
+function listen(it) {
+  try {
+    if (preview) { preview.stop(); preview = null; }
+    const e = itemEncoded(it), n = e.frames, pcm = adpcmDecode(e.data, n, it.mode === 1);
+    const ac = ctx || (actx = actx || new AudioContext());
+    const buf = ac.createBuffer(1, n, it.rate ? SR / 2 : SR), ch = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) ch[i] = pcm[i] / 32768;
+    const src = ac.createBufferSource();
+    src.buffer = buf; src.connect(ac.destination); src.start();
+    preview = src;
+    src.onended = () => { if (preview === src) preview = null; };
+  } catch (err) { note('Non riesco a riprodurre l’anteprima: ' + err.message); }
+}
+
+/* every change: the list again, the simulator gets the bank (after a pause), the browser keeps it */
+let tSend = 0, tSave = 0;
+function changed(redraw = true) {
+  const it = items[sel];
+  if (it) it.cache = null;
+  if (redraw) render(); else renderList();
+  clearTimeout(tSend); tSend = setTimeout(simBank, 450);
+  clearTimeout(tSave); tSave = setTimeout(saveBank, 1200);
+}
+function saveBank() { try { const b = bankBuild(); let s = ''; for (let i = 0; i < b.length; i += 8192) s += String.fromCharCode.apply(null, b.subarray(i, i + 8192)); localStorage.setItem('virgo.ubank', btoa(s)); } catch (_) {} }
+function loadBank() { try { const s = localStorage.getItem('virgo.ubank'); if (s) { items = bankParse(b64bytes(s)).map(itemFromBank); sel = items.length ? 0 : -1; } } catch (_) {} }
+async function addFiles(files) {
+  for (const f of files) {
+    if (items.length >= BANK_MAX) { note(`La banca tiene al massimo ${BANK_MAX} campioni.`); break; }
+    try {
+      const tmp = new OfflineAudioContext(1, 1, 44100), buf = await tmp.decodeAudioData(await f.arrayBuffer());
+      const n = Math.max(1, Math.ceil(buf.duration * SR)), off = new OfflineAudioContext(1, n, SR), s = off.createBufferSource();
+      s.buffer = buf; s.connect(off.destination); s.start();
+      const out = (await off.startRendering()).getChannelData(0);
+      let pk = 0; for (const v of out) pk = Math.max(pk, Math.abs(v));
+      const g = pk > 0 ? 0.89 / pk : 1, pcm = new Int16Array(n);
+      for (let i = 0; i < n; i++) pcm[i] = Math.max(-32767, Math.min(32767, Math.round(out[i] * g * 32767)));
+      items.push({ id: uid++, name: cleanName(f.name), mode: 1, rate: 1, src: pcm, trimA: 0, trimB: n,
+        gain: 0, norm: false, fadeIn: 5, fadeOut: 20, orig: null, origRate: 0, origFrames: 0, cache: null });
+      sel = items.length - 1;
+      note(`Aggiunto ${f.name}: ${secs(n)}, 11 kHz.`);
+    } catch (_) { note(`Non riesco a leggere ${f.name}: prova con un WAV, MP3, OGG o FLAC.`); }
+  }
+  changed();
+}
+$('file').addEventListener('change', async (e) => { await addFiles([...e.target.files]); e.target.value = ''; });
+$('ulist').addEventListener('dragover', (e) => e.preventDefault());
+$('ulist').addEventListener('drop', (e) => { e.preventDefault(); addFiles([...e.dataTransfer.files]); });
+$('bopen').addEventListener('change', async (e) => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  try { items = bankParse(new Uint8Array(await f.arrayBuffer())).map(itemFromBank); sel = items.length ? 0 : -1; zoom = null; changed(); note(`Aperta ${f.name}: ${items.length} campioni.`); }
+  catch (err) { note(`Non riesco ad aprire ${f.name}: ${err.message}.`); }
+});
+$('bsave').addEventListener('click', () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([bankBuild()], { type: 'application/octet-stream' }));
+  a.download = 'banca-utente.grnb'; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+});
+async function fm1Ports() {
+  if (!navigator.requestMIDIAccess) throw new Error('questo browser non parla MIDI: usa Chrome o Edge');
+  const acc = await navigator.requestMIDIAccess({ sysex: true }), outs = [...acc.outputs.values()], pairs = [];
+  for (const i of acc.inputs.values()) {
+    if (!/fm-1|felucca|sinco|usb-midi|composite|m-vave/i.test(i.name || '')) continue;
+    const o = outs.find((x) => x.name === i.name && x.state !== 'disconnected');
+    if (o) pairs.push({ i, o });
+  }
+  if (!pairs.length) throw new Error('non trovo l’FM-1: collegalo via USB e accendilo con VIRGO (o GRANA 1.6)');
+  return pairs;
+}
+function sxSession(pairs) {
+  const got = [];
+  const fs = pairs.map(({ i }) => { const f = (m) => { const d = m.data; if (d[0] === 0xF0 && d[1] === 0x7D && d[2] === 0x47 && d[3] === 0x52) got.push([d, i]); }; i.addEventListener('midimessage', f); return [i, f]; });
+  const wait = (match, ms) => new Promise((res) => {
+    const t0 = performance.now();
+    const look = () => {
+      const k = got.findIndex(([d]) => match(d) || d[4] === 0x1F);
+      if (k >= 0) { res(got.splice(k, 1)[0]); return; }
+      if (performance.now() - t0 > ms) { res(null); return; }
+      setTimeout(look, 2);
+    };
+    look();
+  });
+  return { wait, stop: () => fs.forEach(([i, f]) => i.removeEventListener('midimessage', f)) };
+}
+const UB_ERR = { 1: 'non riesce a cancellare la memoria', 2: 'un blocco è arrivato incompleto', 3: 'un blocco fuori dallo spazio', 4: 'non riesce a cancellare un settore', 5: 'non riesce a scrivere' };
+$('usend').addEventListener('click', async () => {
+  const un = (t) => { $('unote').textContent = t; };
+  try {
+    const b = bankBuild();
+    if (items.length && b.length > UB_ROOM) { un('La banca è più grande del suo spazio: accorcia, togli qualcosa o passa dei campioni a 11 kHz.'); return; }
+    if (!confirm(items.length ? 'Mandare questa banca utente all’FM-1? Quella che c’è ora viene sostituita (anche per GRANA).' : 'La lista è vuota: cancellare la banca utente che c’è sull’FM-1?')) return;
+    const pairs = await fm1Ports(), S = sxSession(pairs);
+    try {
+      un('Preparo l’FM-1…');
+      const nb = items.length ? Math.ceil(b.length / 256) : 0;
+      pairs.forEach(({ o }) => o.send([...HDR, 0x10, nb >> 14 & 127, nb >> 7 & 127, nb & 127, 0xF7]));
+      let r = await S.wait((d) => d[4] === 0x11, 5000);
+      if (!r) { un('L’FM-1 non risponde: deve avere VIRGO o GRANA 1.6, collegato via USB.'); return; }
+      if (r[0][4] === 0x1F) { un('L’FM-1 ' + (UB_ERR[r[0][5]] || 'ha un problema') + '.'); return; }
+      const link = pairs.find((p) => p.i === r[1]) || pairs[0], t0 = performance.now();
+      for (let k = 0; k < nb; k++) {
+        const m = new Uint8Array(9 + 512);
+        m.set([...HDR, 0x12, k >> 14 & 127, k >> 7 & 127, k & 127]);
+        for (let j = 0; j < 256; j++) { const v = 256 * k + j < b.length ? b[256 * k + j] : 0xFF; m[8 + 2 * j] = v >> 4; m[9 + 2 * j] = v & 15; }
+        m[8 + 512] = 0xF7;
+        let ok = null;
+        for (let tries = 0; tries < 3 && !ok; tries++) {
+          link.o.send(m);
+          ok = await S.wait((d) => d[4] === 0x13 && d[5] === (k >> 14 & 127) && d[6] === (k >> 7 & 127) && d[7] === (k & 127), 2000);
+          if (ok && ok[0][4] === 0x1F) { un('L’FM-1 ' + (UB_ERR[ok[0][5]] || 'ha un problema') + ': riprova.'); link.o.send([...HDR, 0x14, 0xF7]); return; }
+        }
+        if (!ok) { un(`L’FM-1 ha smesso di rispondere al blocco ${k + 1} di ${nb}: riprova.`); link.o.send([...HDR, 0x14, 0xF7]); return; }
+        if (!(k & 7)) un(`Invio ${Math.round(k / nb * 100)}% (${Math.round(256 * k / 1024)} di ${Math.round(b.length / 1024)} KB)…`);
+      }
+      link.o.send([...HDR, 0x14, 0xF7]);
+      r = await S.wait((d) => d[4] === 0x15, 4000);
+      if (!r || r[0][4] !== 0x15) { un('Inviata, ma l’FM-1 non ha confermato: spegnilo e riaccendilo, poi guarda la pagina CAMPIONE.'); return; }
+      const nu = r[0][6];
+      un(nu === items.length ? `Banca utente sull’FM-1: ${nu} campioni (${((performance.now() - t0) / 1000).toFixed(0)} s). In VIRGO: pagina CAMPIONE (SEQ), manopola SUONO.`
+        : `L’FM-1 legge ${nu} campioni su ${items.length}: la banca non è arrivata intera, riprova.`);
+    } finally { S.stop(); }
+  } catch (err) { un('Invio non riuscito: ' + err.message + '.'); }
+});
+
+/* ================================================================== the simulator: virgo.c in WebAssembly */
+const WASM_B64 = "__WASM_B64__";
+const PAGEK = [['MASSA 1', 'MASSA 2', 'ROTAZIONE', 'DISTANZA'], ['DURATA', 'PARTENZA', 'ARMONICHE', 'PRECESSIONE'],
+  ['MODI', 'SMORZAMENTO', 'ACCORDO', 'CODA'], ['BRACCIO', 'FINESSE', 'ONDA', 'MIX'], ['SISMICO', 'TERMICO', 'QUANTISTICO', 'GLITCH'],
+  ['DENSITÀ', 'DERIVA', 'BANDA', 'LIVELLO'], ['TASSO', 'MASSE', 'DISTANZE', 'TEMPO'], ['SUONO', 'USO', 'LIVELLO', 'INIZIO'],
+  ['VOLUME', 'BPM', 'COMP/LIMIT', 'STEREO'], ['MOTORE', 'ALGORITMO', 'INDICE', 'SATURAZIONE'], ['INTERVALLO', 'SCALA', 'TONICA', 'CHIRP'],
+  ['GERARCHIA', 'GRAVITÀ', 'TONFO', 'SUB'], ['TIPO', 'FREQUENZA', 'RISONANZA', 'DISTANZA'], ['SORGENTE', 'DESTINAZIONE', 'QUANTITÀ', 'VEL. LFO'],
+  ['SORGENTE', 'DESTINAZIONE', 'QUANTITÀ', 'FORMA LFO'], ['CORO', 'ECO', 'TEMPO ECO', 'RITORNO'],
+  ['FINALE', 'PICCO', 'SOSPENSIONE', 'APPRODO'], ['RIVERBERO', 'CODA RIV.', 'DENSITÀ', 'BRILLANZA'], ['DÉJÀ VU', 'LUNGHEZZA', 'DISPERSIONE', 'SU'],
+  ['RADIO', 'SINTONIA', 'SELETTIVITÀ', 'STATICA'], ['SHIMMER', 'TIPO', 'MOVIMENTO', 'PRE-DELAY'], ['CLOCK', 'RICEVI', 'LEARN', 'CANCELLA'], ['BLUETOOTH', 'DISPOSITIVO', 'MODO', 'AVVIO']];
+let node = null, ctx = null, keysMask = 0, engineOn = false;
+const send = (m) => { if (node) node.port.postMessage(m); };
+const sn = (t) => { $('simNote').textContent = t; };
+function knob(el, label, sub, big, onTurn) {
+  el.innerHTML = `<div class="dial" tabindex="0" role="slider" aria-label="${label}"></div><b>${label}</b><span>${sub}</span>`;
+  const dial = el.firstChild;
+  let ang = 0, y0 = null, acc = 0;
+  const turn = (d) => { if (!d) return; onTurn(d); ang += d * 15; dial.style.setProperty('--a', ang + 'deg'); };
+  dial.addEventListener('pointerdown', (e) => { y0 = e.clientY; acc = 0; dial.setPointerCapture(e.pointerId); dial.focus(); });
+  dial.addEventListener('pointermove', (e) => { if (y0 === null) return; acc += y0 - e.clientY; y0 = e.clientY; const st = big ? 7 : 6; while (acc >= st) { turn(1); acc -= st; } while (acc <= -st) { turn(-1); acc += st; } });
+  dial.addEventListener('pointerup', () => { y0 = null; });
+  dial.addEventListener('wheel', (e) => { e.preventDefault(); turn(e.deltaY < 0 ? 1 : -1); }, { passive: false });
+  dial.addEventListener('keydown', (e) => { if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { turn(1); e.preventDefault(); e.stopPropagation(); } if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { turn(-1); e.preventDefault(); e.stopPropagation(); } });
+  return el.lastChild;
+}
+let masterV = 80;
+const sendMaster = () => { const v = masterV / 100; send({ type: 'master', q15: Math.round(32767 * v * v) }); };
+const mlab = knob($('kMaster'), 'MASTER', 'volume 80', true, (d) => { masterV = Math.max(0, Math.min(100, masterV + 2 * d)); mlab.textContent = 'volume ' + masterV; sendMaster(); });
+knob($('kSelect'), 'SELECT', 'pagine', true, (d) => send({ type: 'enc', id: 0, d }));
+knob($('kPresets'), 'PRESETS', 'preset', true, (d) => send({ type: 'enc', id: 6, d }));
+knob($('kAlgo'), 'ALGORITHM', 'catalogo', true, (d) => send({ type: 'enc', id: 1, d }));
+const klab = [];
+for (let i = 0; i < 4; i++) { const d = document.createElement('div'); d.className = 'kn'; $('k4').appendChild(d); klab.push(knob(d, 'KNOB ' + (i + 1), PAGEK[0][i], false, (dd) => send({ type: 'enc', id: 2 + i, d: dd }))); }
+const BTN = [[2, 'FX', 'filtro … shimmer, spazio'], [3, 'SEL', 'chirp, finale, motore'], [4, 'ENV', 'rumore, radio'], [5, 'LFO', 'mod a·b, cielo'], [6, 'EDIT', 'ringdown'], [7, 'GLO', 'audio, midi'],
+  [8, 'HOME', 'sorg. arm. fus.'], [9, 'SAVE', 'salva'], [10, 'ARP', 'run, déjà vu'], [11, 'SEQ', 'campione'], [12, 'PLAY', 'run on/off'], [13, 'REC', 'evento']];
+const btnEl = new Map();
+function wireBtn(b, id) {
+  const down = (e) => { e.preventDefault(); b.classList.add('down'); send({ type: 'button', id, down: 1 }); };
+  const up = () => { if (b.classList.contains('down')) { b.classList.remove('down'); send({ type: 'button', id, down: 0 }); } };
+  b.addEventListener('pointerdown', down); b.addEventListener('pointerup', up); b.addEventListener('pointerleave', up);
+  btnEl.set(id, b);
+}
+for (const [id, l, f] of BTN) { const b = document.createElement('button'); b.type = 'button'; b.className = 'pb'; b.innerHTML = `${l}<small>${f}</small>`; $('btns').appendChild(b); wireBtn(b, id); }
+wireBtn($('b0'), 0); wireBtn($('b1'), 1);
+const keyEl = [];
+const COMP = { a: 7, w: 8, s: 9, e: 10, d: 11, f: 12, t: 13, g: 14, y: 15, h: 16, u: 17, j: 18, k: 19, o: 20, l: 21, p: 22 };
+{
+  const black = (n) => [1, 3, 5, 8, 10].includes((n + 5) % 12);   /* key 0 = F */
+  let wi = 0; const pos = [];
+  for (let k = 0; k < 27; k++) { if (!black(k)) pos[k] = [wi++, false]; else pos[k] = [wi - 0.5, true]; }
+  const W = 100 / wi;
+  for (let k = 0; k < 27; k++) {
+    const el = document.createElement('div'), [x, b] = pos[k];
+    el.className = 'k' + (b ? ' b' : '');
+    el.style.left = (x * W + (b ? W * 0.18 : 0.15)) + '%'; el.style.width = (W * (b ? 0.64 : 0.94)) + '%';
+    el.style.top = b ? '0' : '38px'; el.style.height = b ? '62px' : '80px';
+    const lab = Object.keys(COMP).find((c) => COMP[c] === k); if (lab) el.textContent = lab.toUpperCase();
+    el.addEventListener('pointerdown', (e) => { e.preventDefault(); el.setPointerCapture?.(e.pointerId); keyDown(k); });
+    el.addEventListener('pointerup', () => keyUp(k)); el.addEventListener('pointercancel', () => keyUp(k));
+    $('kbd').appendChild(el); keyEl.push(el);
+  }
+}
+function keyDown(k) { keysMask |= 1 << k; send({ type: 'keys', mask: keysMask }); }
+function keyUp(k) { keysMask &= ~(1 << k); send({ type: 'keys', mask: keysMask }); }
+const tap = (id) => { send({ type: 'button', id, down: 1 }); setTimeout(() => send({ type: 'button', id, down: 0 }), 60); };
+const heldC = new Set();
+window.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.metaKey || e.ctrlKey || e.altKey || !engineOn) return;
+  const c = e.key.toLowerCase();
+  if (e.repeat) { if (c in COMP || c === ' ') e.preventDefault(); return; }
+  if (c in COMP) { keyDown(COMP[c]); heldC.add(c); e.preventDefault(); }
+  else if (c === 'z') tap(0); else if (c === 'x') tap(1); else if (c === 'r') tap(13);
+  else if (c === 'enter') { e.preventDefault(); tap(12); }
+  else if (c === ' ') { e.preventDefault(); send({ type: 'button', id: 8, down: 1 }); setTimeout(() => send({ type: 'button', id: 8, down: 0 }), 700); }
+  else if ('12345678'.includes(c)) tap([8, 3, 6, 2, 4, 5, 10, 11]['12345678'.indexOf(c)]);
+});
+window.addEventListener('keyup', (e) => { const c = e.key.toLowerCase(); if (heldC.has(c)) { heldC.delete(c); keyUp(COMP[c]); } });
+window.addEventListener('blur', () => { heldC.clear(); keysMask = 0; send({ type: 'keys', mask: 0 }); });
+const lcd = $('lcd').getContext('2d'), img = lcd.createImageData(240, 240);
+lcd.fillStyle = '#000'; lcd.fillRect(0, 0, 240, 240);
+function drawFb(fb) { const d = img.data; for (let i = 0; i < 57600; i++) { const c = fb[i]; d[4 * i] = ((c >> 11) & 31) * 255 / 31; d[4 * i + 1] = ((c >> 5) & 63) * 255 / 63; d[4 * i + 2] = (c & 31) * 255 / 31; d[4 * i + 3] = 255; } lcd.putImageData(img, 0, 0); }
+let lastPage = -1;
+function showState(leds, state) {
+  for (const [id, b] of btnEl) b.classList.toggle('on', leds[id] === 2);
+  for (let k = 0; k < 27; k++) keyEl[k].classList.toggle('lit', leds[14 + k] === 2);
+  const page = state & 31;
+  if (page !== lastPage && PAGEK[page]) { lastPage = page; for (let i = 0; i < 4; i++) klab[i].textContent = PAGEK[page][i]; }
+}
+function loadStore() { try { const s = localStorage.getItem('virgo.store'); if (s) return b64bytes(s); } catch (_) {} return null; }
+function saveStore(u8) { try { let s = ''; for (const b of u8) s += String.fromCharCode(b); localStorage.setItem('virgo.store', btoa(s)); } catch (_) {} }
+function onEngine(d) {
+  if (d.type === 'ready') { $('power').remove(); engineOn = true; sendMaster(); sn(''); }
+  else if (d.type === 'frame') { if (d.fb) drawFb(d.fb); showState(d.leds, d.state); if (d.store) saveStore(d.store); }
+}
+function startOnPage() {
+  const code = $('worklet').textContent.replace(/currentTime/g, 'now()');
+  let Cls = null;
+  class Shim { constructor() { this.port = { postMessage: (m) => onEngine(m), onmessage: null }; } }
+  new Function('AudioWorkletProcessor', 'registerProcessor', 'now', code)(Shim, (_n, c) => { Cls = c; }, () => ctx.currentTime);
+  const proc = new Cls(), sp = ctx.createScriptProcessor(1024, 0, 2);
+  sp.onaudioprocess = (ev) => proc.process([], [[ev.outputBuffer.getChannelData(0), ev.outputBuffer.getChannelData(1)]]);
+  sp.connect(ctx.destination);
+  node = { port: { postMessage: (m) => proc.msg(m) }, keep: sp };
+}
+function simBank() { if (engineOn) send({ type: 'ubank', ubank: items.length ? bankBuild() : new Uint8Array(0) }); }
+$('power').addEventListener('click', async () => {
+  try {
+    ctx = new AudioContext({ sampleRate: 44100, latencyHint: 'interactive' });
+    await ctx.resume();
+    try {
+      await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([$('worklet').textContent], { type: 'application/javascript' })));
+      node = new AudioWorkletNode(ctx, 'virgo', { numberOfInputs: 0, outputChannelCount: [2] });
+      node.connect(ctx.destination);
+      node.port.onmessage = (ev) => onEngine(ev.data);
+    } catch (_) { startOnPage(); }
+    node.port.postMessage({ type: 'wasm', bytes: b64bytes(WASM_B64), store: loadStore(), ubank: items.length ? bankBuild() : null });
+    if (ctx.sampleRate !== 44100) sn(`Il browser lavora a ${ctx.sampleRate} Hz invece di 44100: l’intonazione sarà spostata.`);
+    if (navigator.requestMIDIAccess) navigator.requestMIDIAccess().then((acc) => {   /* a MIDI keyboard plays it too */
+      for (const i of acc.inputs.values()) if (!/fm-1|felucca/i.test(i.name || '')) i.addEventListener('midimessage', (m) => { const [a, b, c] = m.data; if (a < 0xF0 || a === 0xF8 || a === 0xFA || a === 0xFC) send({ type: 'midi', st: a, d1: b || 0, d2: c || 0 }); });
+    }).catch(() => {});
+  } catch (err) { sn('Non riesco ad avviare l’audio: ' + err.message + '. Prova con Chrome o Edge aggiornati.'); }
+});
+loadBank();
+render();
+</script>
+</body>
+</html>
