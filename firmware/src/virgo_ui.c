@@ -761,7 +761,11 @@ static void draw_midipic(void)
         vg_text_al(120, 92, &F_SM, s, 0xC9D4E8, 256, 1);
     }
     {   /* the audio's load: the worst block of the last seconds, of the 5.8 ms there are */
-        char t[32], *e = cat(t, "VIRGO v" APP_VER "  \x84  AUDIO ");
+        char t[48], *e = cat(t, "VIRGO v" APP_VER "  ");
+#ifdef FL_JEDEC_OK
+        e = flash_tag(e); e = cat(e, "  ");
+#endif
+        e = cat(e, "\x84  AUDIO ");
         e = cat_d1(e, audio_max / 100u); e = cat(e, " ms");
         vg_text_al(120, 120, &F_XS, t, gov_max ? C_AMBER : C_FAINT, 256, 1);
         if (gov_max || lim_seen) {                  /* 0.4.1: what the governor and the limiter are doing, plainly */

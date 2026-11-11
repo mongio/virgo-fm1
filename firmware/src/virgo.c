@@ -172,6 +172,15 @@ static void fmt_u(char *s, uint32_t v)
     s[n] = 0;
 }
 static char *cat_u(char *e, uint32_t v) { fmt_u(e, v); while (*e) e++; return e; }
+#ifdef FL_JEDEC_OK
+/* which flash this FM-1 has (0.5.1): PUYA, UC25 (newer FM-1s) or FLASH ?, then L n for late operations */
+static char *flash_tag(char *e)
+{
+    e = cat(e, flash_id == 0x856014u ? "PUYA" : flash_id == 0xB36014u ? "UC25" : "FLASH ?");
+    if (fl_late_ops) { e = cat(e, " L"); e = cat_u(e, fl_late_ops); }
+    return e;
+}
+#endif
 static char *cat_d1(char *e, uint32_t tenths)      /* "12,3" */
 {
     e = cat_u(e, tenths / 10u);
