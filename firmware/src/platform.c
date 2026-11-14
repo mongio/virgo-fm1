@@ -283,6 +283,7 @@ static int32_t abuf[2u * HALF_WORDS] __attribute__((aligned(4)));
 static volatile int32_t master_q12 = 2048;
 static void app_audio(int32_t *out, uint32_t n);
 static void app_main(void);
+static void (*volatile app_audio_p)(int32_t *, uint32_t) = app_audio;   /* 0.6: RAM code is beyond a direct jump from the flash */
 
 void fm1_alnk0_irq(void)                       /* via isr_alnk0 (hal/fm1_isr.S) */
 {
@@ -296,7 +297,7 @@ void fm1_alnk0_irq(void)                       /* via isr_alnk0 (hal/fm1_isr.S) 
         for (i = 0; i < HALF_WORDS; i++)
             o[i] = 0;
         uac_render_start();
-        app_audio(o, HALF_FRAMES);
+        app_audio_p(o, HALF_FRAMES);
         for (i = 0; i < HALF_WORDS; i++) {
             int32_t v = (o[i] * master_q12) >> 12;
             o[i] = v > 32767 ? 32767 : v < -32767 ? -32767 : v;
@@ -312,9 +313,13 @@ void fm1_alnk0_irq(void)                       /* via isr_alnk0 (hal/fm1_isr.S) 
 extern void isr_alnk0(void);
 
 /* ---- the main loop's duties: watchdog, USB, the installer's update request, the MASTER knob */
+static uint32_t batt_raw;                           /* the battery: the ADC (channel 3, PB1's divider), averaged; 0 not read yet */
+static int batt_usb(void) { return usb.config && !usb.suspended; }   /* powered by USB (no charge line of its own: as Felucca) */
 static void platform_poll(void)
 {
     static int32_t knob_avg = 512 * 16;
+    static int32_t batt_avg;
+    static uint32_t batt_t;
     int32_t a;
     fm1_wdt_feed();
     usb_retry(fm1_ms);
@@ -348,6 +353,14 @@ static void platform_poll(void)
         knob_avg += (a * 16 - knob_avg) / 8;
         k10 = (uint32_t)(knob_avg / 16);
         master_q12 = (int32_t)((k10 * k10) >> 8);
+    }
+    if (fm1_ms - batt_t >= 100u) {              /* the battery: ten times a second, a slow mean (as GRANA 1.8) */
+        batt_t = fm1_ms;
+        if ((a = fm1_adc_read(FM1_ADC_BATT)) >= 0) {
+            if (!batt_avg) batt_avg = a * 16;
+            batt_avg += (a * 16 - batt_avg) / 16;
+            batt_raw = (uint32_t)(batt_avg / 16);
+        }
     }
 }
 

@@ -23,7 +23,21 @@ static void value_text(uint32_t p, char *s)
     case P_FIN: cat_u(s, v * 9u / 2u); break;
     case P_DENS: cat_u(s, dens_n(v)); break;
     case P_BAND: e = cat_u(s, band_hz(v)); cat(e, " Hz"); break;
-    case P_RATE: if (!v) cat(s, "OFF"); else { e = cat_u(s, v * 30u / 100u ? v * 30u / 100u : 1u); cat(e, "/MIN"); } break;
+    case P_RATE: if (!v) cat(s, "OFF"); else if (par[P_RITMO]) { e = cat(s, "COLPI "); e = cat_u(e, v); cat(e, "%"); }   /* 0.6: with RITMO, each hit's chance */
+                 else { e = cat_u(s, v * 30u / 100u ? v * 30u / 100u : 1u); cat(e, "/MIN"); } break;
+    case P_FUSM: cat(s, FUSN[v % 3u]); break;       /* 0.6 */
+    case P_CONG: if (!v) cat(s, "OFF"); else if (v >= 100u) cat(s, "FERMO"); else { uint32_t m = exp2_q16((int32_t)v * 6554) >> 16; e = cat(s, "CODA \x82"); cat_u(e, m); } break;
+    case P_INV: if (!v) cat(s, "OFF"); else if (v >= 100u) cat(s, "SEMPRE"); else { e = cat(s, "A CASO "); e = cat_u(e, v); cat(e, "%"); } break;
+    case P_TUFFO: { uint32_t ms = (20u * exp2_q16((int32_t)v * 4738)) >> 16; if (ms < 1000u) { e = cat_u(s, ms); cat(e, " ms"); } else { e = cat_d1(s, ms / 100u); cat(e, " s"); } break; }
+    case P_NOTE: cat(s, NOTEN[v % 3u]); break;
+    case P_TCHG: if (!v) cat(s, "BLOCCATO"); else if (v >= 100u) cat(s, "CASO"); else { e = cat_u(s, v); cat(e, "%"); } break;
+    case P_TLEN: e = cat_u(s, v + 2u); cat(e, " PASSI"); break;
+    case P_TEXT: if (par[P_NOTE] == 2u) { e = cat(s, "1/1 .. 1/"); cat_u(e, v + 1u > 16u ? 16u : v + 1u); } else { e = cat_u(s, v + 1u); cat(e, v ? " GRADI" : " GRADO"); } break;
+    case P_RITMO: cat(s, RITN[v % 3u]); break;
+    case P_EPASSI: if (par[P_RITMO] == 2u) { e = cat(s, "OGNI "); cat_u(e, (v > 15u ? 15u : v) + 1u); } else cat_u(s, v + 2u); break;
+    case P_ECOLPI: if (par[P_RITMO] == 2u) { e = cat(s, "OGNI "); cat_u(e, (v > 15u ? 15u : v) + 1u); }
+                   else { uint32_t N = (uint32_t)par[P_EPASSI] + 2u; e = cat_u(s, v + 1u > N ? N : v + 1u); e = cat(e, " SU "); cat_u(e, N); } break;
+    case P_EROT: cat_u(s, par[P_RITMO] == 2u ? v : v % ((uint32_t)par[P_EPASSI] + 2u)); break;
     case P_MMAX: e = cat(s, "\x81"); e = cat_u(e, 10u + v * 14u / 10u); cat(e, " \x7F"); break;
     case P_RTEMPO: cat(s, TEMPON[v % 6u]); break;
     case P_SND: if (!v) cat(s, "OFF"); else cat(s, snd_name(v - 1u)); break;
@@ -79,7 +93,7 @@ static void param_change(uint32_t p, int32_t d)
     dirty_hdr = 1;
     engine_update();
     if (cell_of(page, p) >= 0) dirty_cells |= 1u << cell_of(page, p);
-    if (p == P_ENG) dirty_cells = 0xF;              /* ALGORITMO and the knob after it change their names */
+    if (p == P_ENG || p == P_NOTE || p == P_RITMO || p == P_EPASSI) dirty_cells = 0xF;   /* names and values that follow another knob */
 }
 static void param_set(uint32_t p, uint32_t pos) { param_change(p, (int32_t)pos - (int32_t)par[p]); }
 static int32_t accel(int32_t d, uint32_t range)
@@ -429,7 +443,9 @@ static void app_sysex(const uint8_t *p, uint32_t n)
         uint8_t *b = (uint8_t *)&r;
         for (k = 0; k < sizeof r; k++) b[k] = (uint8_t)((p[2 + 2u * k] & 15u) << 4 | (p[3 + 2u * k] & 15u));
         i = p[1];
-        if (r.magic == PREC_MAGIC && r.ver == PREC_VER && r.np == NP && r.sum == prec_sum(&r) && r.used) {
+        if (r.magic == PREC_MAGIC && r.ver == PREC_VER && (r.np == NP || r.np == NP5 || r.np == NP4) && r.sum == prec_sum(&r) && r.used) {
+            for (k = r.np; k < NP; k++) r.p[k] = DEF2[k - NP1];   /* 0.6: an older editor's preset, the new knobs as they come */
+            r.np = NP;
             for (k = 0; k < NP; k++) if (r.p[k] > PMAX[k]) r.p[k] = PMAX[k];
             r.name[11] = 0;
             pr[i] = r;
@@ -513,16 +529,16 @@ static void app_step(void)
         learn_say(hold_on == 1u ? "HOLD: LE CODE RESTANO" : hold_on == 2u ? "HOLD INFINITO: CODE FERME" : "HOLD: SPENTO", 0);
     }
     if ((rel & (1u << BTN_HOME)) && !home_fired && !save_mode) goto_page(page == PG_SORG ? PG_ARM : page == PG_ARM ? PG_FUS : PG_SORG);
-    if (b & (1u << BTN_SEL)) goto_page(page == PG_CHIRP ? PG_FINE : page == PG_FINE ? PG_MOT : PG_CHIRP);
+    if (b & (1u << BTN_SEL)) goto_page(page == PG_CHIRP ? PG_FINE : page == PG_FINE ? PG_MOT : page == PG_MOT ? PG_EVT : PG_CHIRP);   /* 0.6 EVENTO */
     if (b & (1u << BTN_EDIT)) goto_page(PG_RING);
     if (b & (1u << BTN_FX)) goto_page(page == PG_FILT ? PG_INT : page == PG_INT ? PG_RIV : page == PG_RIV ? PG_SHIM : page == PG_SHIM ? PG_SPAZ : PG_FILT);   /* 0.5: all the effects */
     if (b & (1u << BTN_ENV)) goto_page(page == PG_RUM ? PG_RADIO : PG_RUM);
     if (b & (1u << BTN_LFO)) goto_page(page == PG_MODA ? PG_MODB : page == PG_MODB ? PG_CIELO : PG_MODA);
     if (b & (1u << BTN_SEQ)) goto_page(PG_CAMP);
     if (b & (1u << BTN_GLO)) goto_page(page == PG_MIX ? PG_MIDI : page == PG_MIDI && GRANA_BT ? PG_BT : PG_MIX);   /* 0.5: AUDIO, MIDI (BT) */
-    if (b & (1u << BTN_ARP)) goto_page(page == PG_RUN ? PG_DEJA : PG_RUN);   /* 0.4: RUN, DEJA VU (PLAY: RUN on / off) */
+    if (b & (1u << BTN_ARP)) goto_page(page == PG_RUN ? PG_DEJA : page == PG_DEJA ? PG_TUR : page == PG_TUR ? PG_RIT : PG_RUN);   /* 0.6 TURING, RITMO */   /* 0.4: RUN, DEJA VU (PLAY: RUN on / off) */
     if (b & (1u << BTN_PLAY)) run_toggle();
-    if (b & (1u << BTN_REC)) { run_event(); learn_say("EVENTO: ", evlog[0].name); }
+    if (b & (1u << BTN_REC)) rec_action();   /* 0.6: A COMANDO, the merger */
     if (b & (1u << BTN_OCT_DOWN) && octave_i > 0u) { octave_i--; store.oct = (uint8_t)octave_i; settings_touch(); }
     if (b & (1u << BTN_OCT_UP)) {
         if (page == PG_MIDI) midi_delete();
@@ -608,14 +624,14 @@ static void app_step(void)
         if (vs[k].stage != ST_OFF && v_note[k] >= kb && v_note[k] < kb + 27u) lit |= 1u << (v_note[k] - kb);
     for (k = 0; k < 27u; k++) fm1_led_key(KEY_LED(k), lit >> k & 1u);
     fm1_led_key(BTN_HOME, page == PG_SORG || page == PG_ARM || page == PG_FUS || hold_on);
-    fm1_led_key(BTN_SEL, page == PG_CHIRP || page == PG_FINE || page == PG_MOT);
+    fm1_led_key(BTN_SEL, page == PG_CHIRP || page == PG_FINE || page == PG_MOT || page == PG_EVT);
     fm1_led_key(BTN_EDIT, page == PG_RING);
     fm1_led_key(BTN_FX, page == PG_INT || page == PG_FILT || page == PG_RIV || page == PG_SHIM || page == PG_SPAZ);
     fm1_led_key(BTN_ENV, page == PG_RUM || page == PG_RADIO);
     fm1_led_key(BTN_LFO, page == PG_CIELO || page == PG_MODA || page == PG_MODB);
     fm1_led_key(BTN_SEQ, page == PG_CAMP);
     fm1_led_key(BTN_GLO, page == PG_MIX || page == PG_MIDI || page == PG_BT);
-    fm1_led_key(BTN_ARP, page == PG_RUN || page == PG_DEJA || (run_on && par[P_RATE]));
+    fm1_led_key(BTN_ARP, page == PG_RUN || page == PG_DEJA || page == PG_TUR || page == PG_RIT || (run_on && par[P_RATE]));
     fm1_led_key(BTN_PLAY, run_on && par[P_RATE] && (fm1_ms >> 9 & 1u));
     fm1_led_key(BTN_REC, nlog && fm1_ms - evlog[0].t < 300u);
     fm1_led_key(BTN_OCT_DOWN, octave < 0);
@@ -630,6 +646,16 @@ static void app_step(void)
         static uint32_t was;
         uint32_t now = vis[0].stage | vis[1].stage << 4 | vis[2].stage << 8 | vis[3].stage << 12 | (gov_max != 0) << 16 | lim_seen << 17;
         if (now != was) { was = now; dirty_hdr = 1; }
+        {   /* 0.6: the battery */
+            static uint32_t bwas, low_said;
+            uint32_t b2 = batt_state();
+            if (b2 != bwas) {
+                bwas = b2; dirty_hdr = 1;
+                if ((b2 & 15u) == 1u && !low_said) { low_said = 1; learn_say("BATTERIA SCARICA", 0); }
+                if ((b2 & 7u) >= 2u || (b2 & 8u)) low_said = 0;
+                if (page == PG_MIDI) dirty_cells |= 0;
+            }
+        }
         if (save_mode && t_savehold) dirty_hdr = 1;
     }
     if (dirty_hdr) { dirty_hdr = 0; draw_header(); }

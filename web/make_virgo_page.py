@@ -12,7 +12,7 @@ d = ver.split(".")
 prod, prod_bt = f"FM-1_97{d[1]}", f"FM-1_98{d[1]}"
 ota_js = (W / "fm1ota.js").read_text().replace("export function", "function").replace("export class", "class")
 shots = {p.stem: b64(p) for p in [R / "docs" / "shots" / f"{n}.png" for n in
-         ("sorgente", "armonia", "fusioni", "chirp", "finale", "motore", "ringdown", "filtro", "interferometro", "rumore", "radio", "moda", "modb", "cielo", "run", "deja", "campione", "mix", "riverbero", "shimmer", "spazio", "midi")] if p.exists()}
+         ("sorgente", "armonia", "fusioni", "chirp", "finale", "motore", "ringdown", "filtro", "interferometro", "rumore", "radio", "evento", "moda", "modb", "cielo", "run", "deja", "turing", "ritmo", "campione", "mix", "riverbero", "shimmer", "spazio", "midi")] if p.exists()}
 html = (W / "virgo.template.html").read_text()
 for k, v in {"__OTA_JS__": ota_js, "__PKG_B64__": b64(R / "build" / f"virgo-{ver}.fwsc"),
              "__PKG_BT_B64__": b64(R / "build" / f"virgo-{ver}-bluetooth.fwsc"), "__PRODUCT_BT__": prod_bt,

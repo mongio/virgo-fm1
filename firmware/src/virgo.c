@@ -21,6 +21,10 @@
 #define USER_AT 0x00093000u                             /* the presets and settings: the 16 KiB free before GRANA's presets */
 #define USER_LEN 0x4000u
 #include "platform.c"
+#if defined(DINGHY_HOST) || defined(GRANA_WEB)
+static uint32_t batt_raw = 640;                     /* (the simulators: a full battery) */
+static int batt_usb(void) { return 0; }
+#endif
 #if !defined(DINGHY_HOST) && !defined(GRANA_WEB)
 #define VFAST __attribute__((section(".fast_text")))   /* 0.4.1: the audio's code runs from RAM, out of the flash cache's way */
 #define VTAB __attribute__((section(".fast_rodata")))  /* and its tables */
@@ -68,16 +72,19 @@ enum { P_M1, P_M2, P_SPIN, P_DIST,                  /* SORGENTE (HOME) */
        P_DEJA, P_DLEN, P_DSPR, P_DSU,               /* DEJA VU (ARP, again): the loop of chances, its length, the spread, on what */
        P_RADIO, P_DIAL, P_SELET, P_STAT,            /* RADIO (ENV, again): how much, the dial, selectivity, static */
        P_SHIM, P_SHTYPE, P_COMP, P_STEREO,          /* 0.5: SHIMMER and its kind; AUDIO's compressor-limiter and stereo (autopan) */
+       P_FUSM, P_CONG, P_INV, P_TUFFO,              /* 0.6, EVENTO (SEL, fourth): when it merges, the frozen ring, the reversed event, the plunge */
+       P_NOTE, P_TCHG, P_TLEN, P_TEXT,              /* TURING (ARP, third): RUN's notes, the register's change, its length, the span */
+       P_RITMO, P_EPASSI, P_ECOLPI, P_EROT,         /* RITMO (ARP, fourth): chance, euclidean, polyrhythm; steps, hits, rotation */
        NP };
 #define NP1 36u                                     /* the parameters of 0.1's presets */
-#define NPAGE 21u
+#define NPAGE 24u
 static const uint8_t PMAX[NP] = {100, 100, 99, 100,  125, 100, 100, 100,  3, 100, 100, 100,  100, 100, 100, 100,
                                  100, 100, 100, 100,  100, 100, 100, 100,  100, 100, 100, 5,  48, 2, 100, 100,
                                  100, 100, 200, 100,
-                                 5, 4, 100, 100,  1, 12, 11, 2,  3, 100, 100, 100,  4, 100, 100, 100,
+                                 5, 4, 100, 100,  1, 14, 11, 2,  3, 100, 100, 100,  4, 100, 100, 100,
                                  9, 10, 200, 100,  9, 10, 200, 3,  100, 100, 5, 100,
                                  100, 100, 100, 100,  100, 100, 100, 100,  100, 15, 100, 1,  100, 100, 100, 100,
-                                 100, 4, 100, 100};
+                                 100, 4, 100, 100,  2, 100, 100, 100,  2, 100, 14, 23,  2, 30, 31, 31};
 static const char *const PNAME[NP] = {"MASSA 1", "MASSA 2", "ROTAZIONE", "DISTANZA",
                                       "DURATA", "PARTENZA", "ARMONICHE", "PRECESSIONE",
                                       "MODI", "SMORZAMENTO", "ACCORDO", "CODA",
@@ -98,18 +105,24 @@ static const char *const PNAME[NP] = {"MASSA 1", "MASSA 2", "ROTAZIONE", "DISTAN
                                       "DENSIT\x83", "BRILLANZA", "MOVIMENTO", "PRE-DELAY",
                                       "D\x86J\x83 VU", "LUNGHEZZA", "DISPERSIONE", "SU",
                                       "RADIO", "SINTONIA", "SELETTIVIT\x83", "STATICA",
-                                      "SHIMMER", "TIPO", "COMP/LIMIT", "STEREO"};
+                                      "SHIMMER", "TIPO", "COMP/LIMIT", "STEREO",
+                                      "FUSIONE", "CONGELA", "INVERSO", "TUFFO",
+                                      "NOTE", "CAMBIO", "LUNGHEZZA", "ESTENSIONE",
+                                      "RITMO", "PASSI", "COLPI", "ROTAZIONE"};
 static const char *const PAGE[NPAGE + 2u] = {"SORGENTE", "CHIRP", "RINGDOWN", "INTERFEROMETRO", "RUMORE", "CIELO", "RUN",
                                              "CAMPIONE", "AUDIO", "MOTORE", "ARMONIA", "FUSIONI", "FILTRO", "MOD A", "MOD B",
-                                             "SPAZIO", "FINALE", "RIVERBERO", "D\x86J\x83 VU", "RADIO", "SHIMMER", "MIDI", "BLUETOOTH"};
+                                             "SPAZIO", "FINALE", "RIVERBERO", "D\x86J\x83 VU", "RADIO", "SHIMMER", "EVENTO", "TURING", "RITMO",
+                                             "MIDI", "BLUETOOTH"};
 enum { PG_SORG, PG_CHIRP, PG_RING, PG_INT, PG_RUM, PG_CIELO, PG_RUN, PG_CAMP, PG_MIX, PG_MOT, PG_ARM, PG_FUS, PG_FILT,
-       PG_MODA, PG_MODB, PG_SPAZ, PG_FINE, PG_RIV, PG_DEJA, PG_RADIO, PG_SHIM, PG_MIDI, PG_BT };
+       PG_MODA, PG_MODB, PG_SPAZ, PG_FINE, PG_RIV, PG_DEJA, PG_RADIO, PG_SHIM, PG_EVT, PG_TUR, PG_RIT, PG_MIDI, PG_BT };
 static const uint32_t PG_ACC[NPAGE + 2u] = {0x6FE3FF, 0xFFB35C, 0xB28CFF, 0xFF7A5C, 0x7DFFB0, 0x9FC4FF, 0x6FE3FF,
                                             0xFFD27A, 0xC9D4E8, 0xFF8FD8, 0xFFE07A, 0xB2F0FF, 0x8CF0C8, 0xD0A8FF, 0xD0A8FF,
-                                            0x7FB8FF, 0xFFB35C, 0x9EC8FF, 0x6FE3FF, 0xFFC86B, 0xE6C8FF, 0xC9D4E8, 0x6FE3FF};
+                                            0x7FB8FF, 0xFFB35C, 0x9EC8FF, 0x6FE3FF, 0xFFC86B, 0xE6C8FF, 0xFF9E7A, 0x9CFFB8, 0xFFD06F,
+                                            0xC9D4E8, 0x6FE3FF};
 /* SELECT: the pages as the buttons open them, HOME, SEL, EDIT, FX, ENV, LFO, ARP, SEQ, GLO */
-static const uint8_t PG_ORDER[NPAGE] = {PG_SORG, PG_ARM, PG_FUS, PG_CHIRP, PG_FINE, PG_MOT, PG_RING, PG_FILT, PG_INT, PG_RIV,
-                                        PG_SHIM, PG_SPAZ, PG_RUM, PG_RADIO, PG_MODA, PG_MODB, PG_CIELO, PG_RUN, PG_DEJA, PG_CAMP, PG_MIX};
+static const uint8_t PG_ORDER[NPAGE] = {PG_SORG, PG_ARM, PG_FUS, PG_CHIRP, PG_FINE, PG_MOT, PG_EVT, PG_RING, PG_FILT, PG_INT, PG_RIV,
+                                        PG_SHIM, PG_SPAZ, PG_RUM, PG_RADIO, PG_MODA, PG_MODB, PG_CIELO, PG_RUN, PG_DEJA, PG_TUR, PG_RIT,
+                                        PG_CAMP, PG_MIX};
 /* 0.5: a page's four parameters (no longer always four in a row: AUDIO, RIVERBERO, SHIMMER gather them) */
 static uint8_t PGP[NPAGE][4];
 static void pgp_init(void)
@@ -137,10 +150,13 @@ static const uint16_t ETQ[6] = {64, 85, 128, 192, 256, 384};                    
 static const char *const SHN[5] = {"OTTAVA", "QUINTA", "KERR", "REDSHIFT", "SPIRALE"};
 static const char *const ALGN[5] = {"AUTO", "BINARIA", "SPIRALE", "ANELLO", "CAMPANA"};
 static const char *const IVLN[2] = {"LIBERO", "DALLE MASSE"};
-#define NSCALE 13u
+#define NSCALE 15u
+#define SC_RESTO 13u                                /* 0.6: the scales of the physics, out of the twelve notes */
+#define SC_ORBIT 14u
 static const char *const SCALEN[NSCALE] = {"CROMATICA", "DA ROTAZIONE", "MAGGIORE", "MINORE", "DORICA", "FRIGIA", "LIDIA",
-                                          "MISOLIDIA", "PENTA MAGG.", "PENTA MIN.", "TONI INTERI", "HIRAJOSHI", "ARMONICI"};
-static const uint16_t SCALEM[NSCALE] = {0xFFF, 0, 0xAB5, 0x5AD, 0x6AD, 0x5AB, 0xAD5, 0x6B5, 0x295, 0x4A9, 0x555, 0x18D, 0xCD5};
+                                          "MISOLIDIA", "PENTA MAGG.", "PENTA MIN.", "TONI INTERI", "HIRAJOSHI", "ARMONICI",
+                                          "DAL RESTO", "ORBITALE"};
+static const uint16_t SCALEM[NSCALE] = {0xFFF, 0, 0xAB5, 0x5AD, 0x6AD, 0x5AB, 0xAD5, 0x6B5, 0x295, 0x4A9, 0x555, 0x18D, 0xCD5, 0, 0};
 static const char *const CQN[3] = {"GLISSANDO", "SCALA", "ARMONICI"};
 static const char *const HIERN[4] = {"OFF", "RUN", "TASTI", "RUN+TASTI"};
 static const char *const FTN[5] = {"OFF", "RIVELATORE", "BASSO", "BANDA", "ALTO"};
@@ -150,10 +166,21 @@ static const char *const MDSTN[11] = {"OFF", "INDICE FM", "FILTRO", "RISONANZA",
                                       "ONDA", "MIX INTERF.", "CIELO"};
 static const char *const LSHN[4] = {"SINUSOIDE", "TRIANGOLO", "QUADRA", "CASO"};
 static const char *const NTN[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+static const char *const FUSN[3] = {"AUTOMATICA", "AL RILASCIO", "A COMANDO"};   /* 0.6 */
+static const char *const NOTEN[3] = {"LIBERE", "TURING", "SUBARMONICHE"};
+static const char *const RITN[3] = {"CASO", "EUCLIDEO", "POLIRITMO"};
 
 static uint8_t par[NP];
 static uint32_t gov_max, lim_seen;                  /* (the screen: the governor and the limiter, see virgo_dsp.c) */
-static const char *plabel(uint32_t p) { return p == P_IDX ? IDXN[par[P_ENG] % 6u] : p < NP ? PNAME[p] : "?"; }
+static const char *plabel(uint32_t p)
+{
+    if (p == P_IDX) return IDXN[par[P_ENG] % 6u];
+    if (p == P_TEXT && par[P_NOTE] == 2u) return "DIVISORI";       /* 0.6: the knobs named as RITMO and NOTE use them */
+    if (p == P_EPASSI && par[P_RITMO] == 2u) return "DIVISORE A";
+    if (p == P_ECOLPI && par[P_RITMO] == 2u) return "DIVISORE B";
+    if (p == P_EROT && par[P_RITMO] == 2u) return "SFASAMENTO";
+    return p < NP ? PNAME[p] : "?";
+}
 static uint32_t page, octave_i = 3;                 /* octave 0 = index 3 */
 #define octave ((int32_t)octave_i - 3)
 static uint32_t dirty_hdr = 1, dirty_cells = 0xF;
@@ -368,12 +395,62 @@ static uint32_t ivl_ratio16(uint32_t m1, uint32_t m2)  /* Q16 */
     uint32_t r = (uint32_t)IVL_R[ivl_index(m1, m2)] << 4;
     return r == 65536u ? 65732u : r;                 /* the unison a little open: two masses, two voices */
 }
+/* 0.6: the scales of the physics, in fractions of a semitone over the tonic (Q16, one octave).
+ * DAL RESTO: the remnant's own modes, (2,2,0) (3,3,0) (2,2,1) (4,4,0) at this spin, and every ratio between two of them,
+ *   folded into an octave, the near ones (30 cents) as one: a slow remnant gives a dense, strange scale; a fast one
+ *   (spin 0.99) little more than fourths and fifths. ROTAZIONE moves it.
+ * ORBITALE: the resonances of orbits (Laplace's 1:2:4, TRAPPIST-1's 8:5, 5:3, 3:2, 4:3, 7:5): 1/1 5/4 4/3 7/5 3/2 8/5 5/3 7/4. */
+static const uint16_t ORB_C[8] = {0, 386, 498, 583, 702, 814, 884, 969};     /* cents */
+static uint32_t scale_deg(uint32_t spin, int32_t *deg)  /* the degrees (Q16 semitones, rising, 0 first); 0: a twelve-note scale */
+{
+    uint32_t sc = par[P_SCALE] % NSCALE, n = 0, i, j;
+    if (sc == SC_ORBIT) { for (i = 0; i < 8u; i++) deg[i] = (int32_t)((uint32_t)ORB_C[i] * 65536u / 100u); return 8u; }
+    if (sc != SC_RESTO) return 0;
+    {
+        int32_t l[NM], c[NDEG + 1u];
+        uint32_t m = 0;
+        if (spin > 99u) spin = 99u;
+        for (i = 0; i < NM; i++) l[i] = log2_q16(QNM_R[spin * 4u + i]);
+        c[m++] = 0;
+        for (i = 0; i < NM; i++) for (j = 0; j < NM; j++) if (i != j && m < NDEG) {
+            int32_t x = (int32_t)(((int64_t)(l[i] - l[j]) * 12) % (12 << 16));
+            if (x < 0) x += 12 << 16;
+            c[m++] = x;
+        }
+        for (i = 1; i < m; i++) for (j = i; j > 0 && c[j] < c[j - 1u]; j--) { int32_t t = c[j]; c[j] = c[j - 1u]; c[j - 1u] = t; }
+        for (i = 0; i < m; i++) {                   /* 30 cents apart at least, and not just under the octave */
+            if (n && c[i] - deg[n - 1u] < 19661) continue;
+            if (c[i] > (12 << 16) - 19661) continue;
+            deg[n++] = c[i];
+        }
+    }
+    return n;
+}
+static uint32_t deg_mask(const int32_t *deg, uint32_t n)   /* the nearest twelve notes (the Tonnetz, the screen) */
+{
+    uint32_t m = 0, i;
+    for (i = 0; i < n; i++) m |= 1u << (((deg[i] + 32768) >> 16) % 12u);
+    return m;
+}
 static uint32_t scale_mask(uint32_t spin)           /* the scale now (DA ROTAZIONE by the spin) */
 {
     uint32_t s = par[P_SCALE] % NSCALE;
+    if (s >= SC_RESTO) { int32_t d[NDEG]; uint32_t n = scale_deg(spin, d); return deg_mask(d, n); }
     if (s == 1u) s = spin < 20u ? 5u : spin < 40u ? 3u : spin < 55u ? 4u : spin < 70u ? 7u : spin < 85u ? 2u : 6u;
     return SCALEM[s];
 }
+static int32_t scale_snap16(int32_t x16, uint32_t spin)   /* any scale: a pitch (Q16) to it; CROMATICA leaves it */
+{
+    int32_t d[NDEG];
+    uint32_t n = scale_deg(spin, d), mk;
+    if (n) return deg_snap16(x16, par[P_TONIC] % 12u, d, n);
+    mk = scale_mask(spin);
+    if (mk == 0xFFFu) return x16;
+    return snap_note((x16 + 32768) >> 16, mk, par[P_TONIC]) << 16;
+}
+static int32_t ev_frac16;                           /* 0.6: the next event's note, the fraction of a semitone (the physics' scales) */
+static int32_t ev_chance16 = -1;                    /* the next event's chance of INVERSO (-1: its own) */
+static uint32_t ev_keyed;                           /* the next event is a key's (or a MIDI note's) */
 static uint32_t scale_shown(uint32_t spin)
 {
     uint32_t s = par[P_SCALE] % NSCALE;
@@ -507,7 +584,7 @@ static void ev_start(uint32_t note, uint32_t vel, uint32_t m1, uint32_t m2, uint
     e->tc = tc_ms * 44u + tc_ms / 10u;             /* 44.1 frames a ms */
     e->rtc = 0xFFFFFFFFu / e->tc;
     /* frequencies: the key is the ringdown; the merger a little under it; the start PARTENZA octaves under that */
-    inc_rd = inc_of((int32_t)note << 16);
+    inc_rd = inc_of(((int32_t)note << 16) + ev_frac16);
     e->inc_m = (uint32_t)(((uint64_t)inc_rd * (47186u + spin * 66u)) >> 16);   /* 0.72 .. 0.82 */
     e->inc_m = (uint32_t)(((uint64_t)e->inc_m * exp2_q16(((int32_t)par[P_PICCO] - 50) * 1311)) >> 16);   /* PICCO: x 0.5 .. x 2 */
     {   /* RADIO: the event's station on the dial, by its chirp mass (1 .. 100 solar masses, log) */
@@ -542,10 +619,10 @@ static void ev_start(uint32_t note, uint32_t vel, uint32_t m1, uint32_t m2, uint
         {   /* ACCORDO: toward the scale's nearest note (CROMATICA: a chord, root third fifth octave) */
             int32_t tgt = SNAP[k];
             uint32_t mk = scale_mask(spin);
-            if (mk != 0xFFFu) {
-                int32_t st = (log2_q16(r12) - (12 << 16)) * 12, nn = (int32_t)note + ((st + 32768) >> 16);
-                nn = snap_note(nn, mk, par[P_TONIC]);
-                tgt = (int32_t)(exp2_q16((nn - (int32_t)note) * 65536 / 12) >> 4);
+            if (mk != 0xFFFu || par[P_SCALE] % NSCALE >= SC_RESTO) {   /* (0.6: the physics' scales, to the fraction) */
+                int32_t st = (log2_q16(r12) - (12 << 16)) * 12, x = ((int32_t)note << 16) + ev_frac16 + st;
+                x = scale_snap16(x, spin) - ((int32_t)note << 16) - ev_frac16;
+                tgt = (int32_t)(exp2_q16(x / 12) >> 4);
             }
             if (k == 2u && par[P_IVL]) {            /* INTERVALLO: the second mode is the masses' interval */
                 tgt = (int32_t)(ivl_ratio16(m1, m2) >> 4);
@@ -571,6 +648,17 @@ static void ev_start(uint32_t note, uint32_t vel, uint32_t m1, uint32_t m2, uint
             rot_q30(inc, rr, &e->cr[k][2], &e->sr[k][2]);
             e->rad[k][0] = r; e->rad[k][1] = rc; e->rad[k][2] = rr;   /* (APPRODO: the radii, to turn the steps as the pitch glides) */
         }
+        {   /* 0.6 CONGELA: the ring's loss divided by 2^(v/10) while the key is held; at 100 it stands still */
+            uint32_t cv = par[P_CONG], x = (uint32_t)(((uint64_t)(uint32_t)(0x40000000 - r) * exp2_q16(-(int32_t)cv * 6554)) >> 16);
+            int32_t r3 = cv >= 100u || x < 8u ? 0x40000000 - 8 : 0x40000000 - (int32_t)x;
+            rot_q30(inc, r3, &e->cr[k][3], &e->sr[k][3]);
+            e->rad[k][3] = r3;
+        }
+        {   /* INVERSO: the ring backwards, growing to the merger (1 / r) */
+            int32_t rg = (int32_t)(((uint64_t)1 << 60) / (uint32_t)(r > 0x30000000 ? r : 0x30000000));
+            rot_q30(inc, rg, &e->cr[k][4], &e->sr[k][4]);
+            e->rad[k][4] = rg;
+        }
         xr = (uint32_t)((0x40000000 - r) >> 15) * 8u;
         e->ing[k] = (int32_t)(xr > 32767u ? 32767u : xr);
     }
@@ -584,6 +672,36 @@ static void ev_start(uint32_t note, uint32_t vel, uint32_t m1, uint32_t m2, uint
     }
     e->coda_lv = par[P_CODA] ? (int32_t)par[P_CODA] * 250 + 400 : 0;   /* Q15 of the peak (0.3: up to 77 %, a body) */
     ev_harmony(e, note, inc_rd, m1, m2, spin, mpc, vel);
+    {   /* 0.6 EVENTO */
+        uint32_t tf = (20u * exp2_q16((int32_t)par[P_TUFFO] * 4738)) >> 16, ch = ev_chance16 >= 0 ? (uint32_t)ev_chance16 : rand_u16();   /* TUFFO 20 ms .. 3 s */
+        e->fus = (uint8_t)(par[P_FUSM] == 1u ? (ev_keyed ? 1u : 0u) : par[P_FUSM] % 3u);   /* AL RILASCIO: only what a key holds */
+        e->rush = tf * 44u + tf / 10u;
+        e->frz = (uint8_t)(par[P_CONG] && ev_keyed);
+        if (e->eng == 4u) {
+            uint32_t cv = par[P_CONG], x = (uint32_t)(((uint64_t)(uint32_t)(32767 - e->ks_g[0]) * exp2_q16(-(int32_t)cv * 6554)) >> 16);
+            e->ks_g[3] = cv >= 100u ? 32740 : 32767 - (int32_t)(x < 27u ? 27u : x);
+            if (e->ks_g[3] > 32740) e->ks_g[3] = 32740;
+        }
+        e->rev = (uint8_t)(par[P_INV] && ch < (uint32_t)par[P_INV] * 655u);   /* INVERSO: the chance, from the DEJA VU's loop when it runs */
+        if (e->rev) {   /* the growing ring lasts as the (2,2,0) would take to fall to 1/64 (ln 64 = 4.16 times its time), 0.08 .. 6 s */
+            uint32_t x0 = (uint32_t)(0x40000000 - e->rad[0][0]), D;
+            uint64_t d = x0 ? 4466765005ull / x0 : 264600u;   /* 4.16 x 2^30 / x0 */
+            D = d > 264600u ? 264600u : d < 3528u ? 3528u : (uint32_t)d;
+            e->swell = D;
+            for (k = 0; k < NM; k++) {              /* each mode starts where it would be D after the merger */
+                uint32_t xk = (uint32_t)(0x40000000 - e->rad[k][0]);
+                uint32_t nat16 = (uint32_t)(((uint64_t)D * xk) >> 14);   /* D (1 - r): nats, Q16 */
+                int32_t l2 = -(int32_t)(((uint64_t)(nat16 > 2000000u ? 2000000u : nat16) * 94548u) >> 16);
+                e->sw0[k] = (int32_t)(exp2_q16(l2) >> 1);
+            }
+        }
+        e->nd = 0;
+        if (e->cq == 1u) { int32_t d[NDEG]; uint32_t nd = scale_deg(spin, d), j; for (j = 0; j < nd; j++) e->deg[j] = d[j]; e->nd = (uint8_t)nd; }
+    }
+#ifdef DINGHY_HOST
+    printf("%6u ms  EV v%u note %u%+d c  m %u+%u  rev %u fus %u frz %u\n", fm1_ms, v, note, ev_frac16 * 100 / 65536, m1, m2, e->rev, e->fus, e->frz);
+#endif
+    ev_frac16 = 0; ev_chance16 = -1;
     /* CAMPIONE */
     e->smp_on = (uint8_t)(par[P_SND] && smp_len && par[P_USE] != 2u);
     e->use = par[P_USE];
@@ -656,6 +774,7 @@ static void note_on(uint32_t note, uint32_t vel)
     uint32_t spin = par[P_SPIN], mpc = dist_mpc(par[P_DIST]);
     if (par[P_DSU] && par[P_DEJA]) {                 /* DEJA VU on the keys: the sources come back as the loop says */
         const uint16_t *c = dv_next();
+        ev_chance16 = c[DV_TIME];                    /* (0.6: INVERSO comes back with the rest) */
         int32_t sp = (int32_t)spin + dv_spread(c[DV_SPIN], 40);
         m1 = (uint32_t)(((uint64_t)m1 * exp2_q16(dv_spread(c[DV_M1], 65536))) >> 16);
         m2 = (uint32_t)(((uint64_t)m2 * exp2_q16(dv_spread(c[DV_M2], 65536))) >> 16);
@@ -665,7 +784,9 @@ static void note_on(uint32_t note, uint32_t vel)
         if (m2 < 10u) m2 = 10u;
     }
     if (h) { note = tz_tone(note); if (hier_m10) m1 = hier_m10; }   /* FUSIONI TASTI: the key's nearest chord tone */
+    ev_keyed = 1;
     ev_start(note, vel, m1, m2, spin, mpc, 0);
+    ev_keyed = 0;
     { uint32_t v; for (v = 0; v < NV; v++) if (v_age[v] == ages) v_key[v] = (uint8_t)key; }
     if (h) hier_merged(m1, m2);
 }
@@ -771,6 +892,7 @@ static void engine_update(void)
 #define PREC_NP 96u
 #define NP3 64u                                     /* 0.3's */
 #define NP4 80u                                     /* 0.4's (same record, fewer parameters) */
+#define NP5 84u                                     /* 0.5's */
 #define PREC_SIZE 256u
 typedef struct { uint8_t magic, ver, np, used; char name[12]; uint8_t p[PREC_NP]; uint32_t sum; } prec_t;
 static prec_t pr[NPRESET];
@@ -778,7 +900,7 @@ static uint32_t cur_preset, edited, save_pending, save_sectors, t_save, t_cur, t
 static int32_t pend_preset = -1;
 static const uint8_t DEF2[NP - NP1] = {1, 0, 45, 25,  1, 1, 0, 0,  0, 40, 45, 25,  1, 62, 35, 40,  2, 2, 150, 30,  4, 1, 170, 0,
                                        30, 0, 3, 35,  50, 50, 0, 0,  75, 50, 35, 10,  0, 7, 40, 0,  0, 50, 50, 50,
-                                       0, 0, 20, 25};
+                                       0, 0, 20, 25,  0, 0, 0, 30,  0, 25, 6, 7,  0, 6, 2, 0};
 static const struct { char name[12]; uint8_t p[NP]; } FACT[NFACT] = {
     /* M1 M2 SPIN DIST  DUR PART HARM PREC  MODI SMORZ ACC CODA  ARM FIN ONDA IMIX  SEIS TERM QUANT GLITCH
      * DENS DRIFT BAND SKY  RATE MMAX DMAX TEMPO  SND USE SLV SSTART  RMIX RDEC BPM VOL
@@ -828,6 +950,16 @@ static const struct { char name[12]; uint8_t p[NP]; } FACT[NFACT] = {
                     5, 0, 30, 15,  1, 3, 2, 1,  1, 45, 20, 15,  0, 60, 30, 30,  6, 5, 130, 35,  0, 0, 100, 0,  45, 15, 4, 35,
                              65, 50, 20, 45,  95, 40, 55, 25,  0, 7, 40, 0,  0, 50, 50, 50,  30, 0, 25, 60}},
 };
+/* 0.6: the new knobs in the factory presets: {preset, parameter, value} */
+static const uint8_t FX6[][3] = {
+    {1, P_CONG, 70}, {1, P_FUSM, 1}, {1, P_TUFFO, 45},                          /* BUCHI NERI: held, it waits; let go, it plunges; the ring stands */
+    {3, P_INV, 35},                                                              /* CIELO LISA: one in three backwards */
+    {5, P_NOTE, 1}, {5, P_TCHG, 15}, {5, P_TLEN, 6}, {5, P_TEXT, 9},            /* CATALOGO O4: a Turing line */
+    {8, P_RITMO, 1}, {8, P_EPASSI, 14}, {8, P_ECOLPI, 6}, {8, P_SCALE, SC_ORBIT},   /* TONNETZ: 7 in 16, the orbits' scale */
+    {9, P_RITMO, 2}, {9, P_EPASSI, 2}, {9, P_ECOLPI, 1}, {9, P_NOTE, 2}, {9, P_TEXT, 7},   /* ORBITE 2:3: 3 against 2, undertones */
+    {12, P_SCALE, SC_RESTO}, {12, P_CONG, 55},                                  /* CORDA NERA: the remnant's own scale */
+    {13, P_INV, 60}, {13, P_FUSM, 2},                                           /* CORO VIRGO: backwards, and merged with REC */
+};
 typedef struct { uint8_t st, num, par, pad; } learn_t;
 #define NLEARN 32u
 #define SET_MAGIC 0x56495247u                       /* "VIRG" */
@@ -857,7 +989,8 @@ static void prec_factory(uint32_t i)
     if (i >= NFACT) return;
     for (k = 0; k < 12u; k++) r->name[k] = FACT[i].name[k];
     r->name[11] = 0;
-    for (k = 0; k < NP; k++) r->p[k] = FACT[i].p[k];
+    for (k = 0; k < NP; k++) r->p[k] = k < NP5 ? FACT[i].p[k] : DEF2[k - NP1];
+    for (k = 0; k < sizeof FX6 / sizeof FX6[0]; k++) if (FX6[k][0] == i) r->p[FX6[k][1]] = FX6[k][2];   /* 0.6's knobs in a few */
     r->used = 1;
 }
 static int prec_from_01(uint32_t i)                  /* a record of 0.1 (36 parameters in 48, its sum at 64): to this one */
@@ -918,13 +1051,19 @@ static void presets_load(void)
     uint32_t i, k;
     for (i = 0; i < NPRESET; i++) {
         prec_t *r = &pr[i];
-        if (user_read(i * PREC_SIZE, r, sizeof *r) || r->magic != PREC_MAGIC || r->ver != PREC_VER || (r->np != NP && r->np != NP4) ||
+        if (user_read(i * PREC_SIZE, r, sizeof *r) || r->magic != PREC_MAGIC || r->ver != PREC_VER || (r->np != NP && r->np != NP4 && r->np != NP5) ||
             r->sum != prec_sum(r) || !r->used) {
             if (prec_from_02(i) || prec_from_01(i)) { save_sectors |= 1u << (i / 16u); continue; }
             prec_factory(i); continue;
         }
         r->name[11] = 0;
-        if (r->np == NP4) { for (k = NP4; k < NP; k++) r->p[k] = DEF2[k - NP1]; r->np = NP; }   /* 0.4's: SHIMMER off, AUDIO as it comes */
+        if (r->np != NP) {                          /* 0.4's: SHIMMER off, AUDIO as it comes; 0.5's: EVENTO, TURING, RITMO */
+            uint32_t j, same = i < NFACT;
+            for (k = r->np; k < NP; k++) r->p[k] = DEF2[k - NP1];
+            for (j = 0; same && j < 12u; j++) { if (r->name[j] != FACT[i].name[j]) same = 0; if (!FACT[i].name[j]) break; }
+            if (same) for (j = 0; j < sizeof FX6 / sizeof FX6[0]; j++) if (FX6[j][0] == i) r->p[FX6[j][1]] = FX6[j][2];   /* a factory preset still as it came: 0.6's touches too */
+            r->np = NP;
+        }
         for (k = 0; k < NP; k++) if (r->p[k] > PMAX[k]) r->p[k] = PMAX[k];
     }
     if (vset_load() || store.ver != SET_VER) {
@@ -982,6 +1121,74 @@ static void preset_recall(uint32_t i)
 /* ---- RUN: events at random, like a catalogue being written; in time (TEMPO) with BPM or the MIDI clock */
 static uint32_t run_on, run_next, run_grid_t, run_seen_ticks;
 static volatile uint32_t ext_ticks;                 /* the MIDI clock's ticks (24 a quarter) */
+/* ---- 0.6 TURING: RUN's notes from a shift register, as Music Thing Modular's Turing Machine: LUNGHEZZA bits go round,
+ * the bit coming back flips with CAMBIO's chance (0: the loop locked, 100: half the time, all new); eight bits read as a
+ * number choose the note: TURING among ESTENSIONE degrees of the scale from the lowest key played; SUBARMONICHE among
+ * the undertones 1/1 .. 1/DIVISORI of an octave over the highest (pure, as Moog's Subharmonicon's oscillators). */
+static uint16_t tu_reg = 0x9A5Bu;
+static uint32_t tu_val, tu_n;
+static int32_t tu_hist[16];                         /* the last notes (Q16), for the screen */
+static uint32_t tu_next(void)
+{
+    uint32_t L = (uint32_t)par[P_TLEN] + 2u, top = (uint32_t)tu_reg >> (L - 1u) & 1u;
+    if (rand_u16() < (uint32_t)par[P_TCHG] * 328u) top ^= 1u;
+    tu_reg = (uint16_t)((uint32_t)tu_reg << 1 | top);
+    tu_val = tu_reg & 0xFFu;
+    return tu_val;
+}
+static uint32_t scale_list(uint32_t spin, int32_t *deg)   /* any scale as degrees (Q16 over the tonic) */
+{
+    uint32_t n = scale_deg(spin, deg), mk, i;
+    if (n) return n;
+    mk = scale_mask(spin);
+    for (i = 0; i < 12u; i++) if (mk >> i & 1u) deg[n++] = (int32_t)(i << 16);
+    if (!n) deg[n++] = 0;
+    return n;
+}
+static int32_t tu_pitch(void)                       /* the next note of RUN, Q16 */
+{
+    uint32_t v = tu_next(), i, lo = 127u, hi = 0u, nl = nlast ? nlast : 4u;
+    int32_t x;
+    for (i = 0; i < nl; i++) { if (last_notes[i] < lo) lo = last_notes[i]; if (last_notes[i] > hi) hi = last_notes[i]; }
+    if (par[P_NOTE] == 2u) {                        /* SUBARMONICHE */
+        uint32_t D = (uint32_t)par[P_TEXT] + 1u, k;
+        if (D > 16u) D = 16u;
+        k = 1u + (v * D >> 8);
+        x = ((int32_t)(hi + 12u) << 16) - 12 * log2_q16(k);
+    } else {                                        /* TURING: degrees of the scale */
+        int32_t d[NDEG > 12u ? NDEG : 12u], rel, o, r;
+        uint32_t n = scale_list(par[P_SPIN], d), t = par[P_TONIC] % 12u, j = 0, idx;
+        rel = (int32_t)lo - (int32_t)t;
+        o = rel >= 0 ? rel / 12 : -((11 - rel) / 12);
+        r = (rel - o * 12) << 16;
+        while (j < n && d[j] < r) j++;
+        idx = j + (v * ((uint32_t)par[P_TEXT] + 1u) >> 8);
+        x = ((int32_t)t << 16) + (o + (int32_t)(idx / n)) * (12 << 16) + d[idx % n];
+    }
+    if (x < (24 << 16)) x = 24 << 16;
+    if (x > (108 << 16)) x = 108 << 16;
+    for (i = 15; i > 0; i--) tu_hist[i] = tu_hist[i - 1u];
+    tu_hist[0] = x;
+    if (tu_n < 16u) tu_n++;
+    return x;
+}
+/* RITMO on RUN's grid: EUCLIDEO, COLPI hits spread over PASSI steps (Bjorklund), turned by ROTAZIONE; POLIRITMO, two
+ * dividers of the steps, A and B, B moved by SFASAMENTO (two of the Subharmonicon's four rhythms). TASSO is then the
+ * chance of each hit. With TEMPO LIBERO the steps are 1/16. */
+static uint32_t rt_pos, rt_hit_t;
+static uint32_t rt_N(void) { return par[P_RITMO] == 2u ? 16u : (uint32_t)par[P_EPASSI] + 2u; }
+static uint32_t rt_hit(uint32_t st)
+{
+    if (par[P_RITMO] == 2u) {
+        uint32_t A = (par[P_EPASSI] > 15u ? 15u : par[P_EPASSI]) + 1u, B = (par[P_ECOLPI] > 15u ? 15u : par[P_ECOLPI]) + 1u;
+        return (st % A == 0u ? 1u : 0u) | ((st + par[P_EROT]) % B == 0u ? 2u : 0u);
+    } else {
+        uint32_t N = rt_N(), K = (uint32_t)par[P_ECOLPI] + 1u, i;
+        if (K > N) K = N;
+        i = (st + par[P_EROT]) % N;
+        return (i * K) % N < K ? 1u : 0u;
+    }
+}
 static void run_event(void)
 {
     uint32_t mmax = 100u + (uint32_t)par[P_MMAX] * 14u, dmax = 1000u + (uint32_t)par[P_DMAX] * 490u;   /* tenths; Mpc x 10 */
@@ -991,14 +1198,25 @@ static void run_event(void)
     d = (uint32_t)(((uint64_t)dmax * exp2_q16(log2_q16(u) / 3 - (16 << 16) / 3)) >> 16);
     d /= 10u;   /* in the volume: u^(1/3) */
     if (d < 10u) d = 10u;
-    if (par[P_HIER] & 1u) {                         /* FUSIONI RUN: the remnant goes on, a tone of the chord */
+    if (par[P_DEJA]) ev_chance16 = c[DV_TIME];       /* 0.6: INVERSO in the loop too */
+    if (par[P_NOTE]) {                              /* 0.6 TURING, SUBARMONICHE */
+        int32_t x = tu_pitch();
+        if ((par[P_HIER] & 1u) && hier_m10) m1 = hier_m10;
+        if (m2 > m1) m2 = m1;
+        n = (uint32_t)((x + 32768) >> 16);
+        ev_frac16 = x - ((int32_t)n << 16);
+        if ((par[P_HIER] & 1u) && par[P_NOTE] == 1u) { n = tz_tone(n); ev_frac16 = 0; }
+    } else if (par[P_HIER] & 1u) {                  /* FUSIONI RUN: the remnant goes on, a tone of the chord */
         if (hier_m10) m1 = hier_m10;
         if (m2 > m1) m2 = m1;
         n = tz_tone(43u + c[DV_NOTE] % 18u);
     } else {
+        int32_t x;
         n = last_notes[c[DV_NOTE] % (nlast ? nlast : 4u)];
         if (par[P_DEJA]) n = (uint32_t)((int32_t)n + dv_spread((uint16_t)(c[DV_NOTE] * 40503u), 12));   /* DISPERSIONE: up to an octave around */
-        n = (uint32_t)snap_note((int32_t)n, scale_mask(par[P_SPIN]), par[P_TONIC]);
+        x = scale_snap16((int32_t)n << 16, par[P_SPIN]);
+        n = (uint32_t)((x + 32768) >> 16);
+        ev_frac16 = x - ((int32_t)n << 16);
     }
     ev_start(n, 100u, m1, m2, 30u + c[DV_SPIN] % 61u, d, 0);
     if (par[P_HIER] & 1u) hier_merged(m1, m2);
@@ -1010,7 +1228,7 @@ static void run_step(void)
     static const uint8_t TK[6] = {0, 96, 48, 24, 12, 0};   /* ticks of the grid, 24 a quarter */
     run_last_ms = now;
     if (!run_on || !rate) return;
-    if (!tm) {                                       /* LIBERO: a Poisson process, rate a minute */
+    if (!tm && !par[P_RITMO]) {                                       /* LIBERO: a Poisson process, rate a minute */
         if ((int32_t)(now - run_next) >= 0) {
             uint32_t mean = 6000000u / (rate * 30u), u = dv_hit() + 1u;
             int32_t l = log2_q16(65536u) - log2_q16(u);   /* -log2 u, Q16 */
@@ -1028,6 +1246,16 @@ static void run_step(void)
     if (nt > 8u) nt = 8u;
     for (k = 0; k < nt; k++) {
         uint32_t t = ++run_tick, hit, g;
+        if (par[P_RITMO]) {                          /* 0.6 RITMO: on the grid's steps */
+            uint32_t st, h;
+            g = !tm ? 6u : tm == 5u ? 12u : TK[tm];
+            if (t % g) continue;
+            st = t / g;
+            rt_pos = st % rt_N();
+            h = rt_hit(st);
+            if (h && (rate >= 100u || rand_u16() % 1000u < rate * 10u)) { rt_hit_t = fm1_ms ? fm1_ms : 1u; run_event(); }
+            continue;
+        }
         if (tm == 5u) { hit = !(t % 24u) || !(t % 16u); g = 12u; }   /* ORBITE 2:3: two orbits in resonance, two against three */
         else { g = TK[tm]; hit = !(t % g); }
         if (hit) {                                   /* at each step: an event with the chance that keeps the rate */
@@ -1036,6 +1264,25 @@ static void run_step(void)
             if (p > 1000u || (dv_hit() % 1000u) < p) run_event();
         }
     }
+}
+
+/* ---- 0.6 FUSIONE A COMANDO: REC (or CC 66, the SMC's REC) merges what waits; with nothing waiting, an event as before */
+static uint32_t fus_waiting(void)
+{
+    uint32_t v, n = 0;
+    for (v = 0; v < NV; v++) if (vs[v].stage == ST_INSP && vs[v].e.fus == 2u && !vs[v].e.rev && !ev_go[v]) n++;
+    return n;
+}
+static void fus_command(void)
+{
+    uint32_t v;
+    for (v = 0; v < NV; v++) if (vs[v].stage == ST_INSP && vs[v].e.fus == 2u) ev_go[v] = 1;
+}
+static void rec_action(void)
+{
+    if (par[P_FUSM] == 2u && fus_waiting()) { fus_command(); learn_say("FUSIONE!", 0); return; }
+    run_event();
+    learn_say("EVENTO: ", evlog[0].name);
 }
 
 /* ---- the catalogue (ALGORITHM) */

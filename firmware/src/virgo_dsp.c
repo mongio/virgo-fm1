@@ -76,7 +76,8 @@ static volatile uint32_t smp_len;                   /* frames, 0 = none */
 #define NV 4u
 #define NM 4u                                       /* ringdown modes */
 #define BLK 32u                                     /* the control block, frames */
-enum { ST_OFF, ST_INSP, ST_RING, ST_CODA, ST_REL };
+enum { ST_OFF, ST_INSP, ST_RING, ST_CODA, ST_REL, ST_SWELL };   /* 0.6 ST_SWELL: a reversed event's ring, growing */
+#define NDEG 13u                                    /* 0.6: the degrees of the physics' scales at most */
 enum { MS_OFF, MS_STRAIN, MS_FREQ, MS_ENV, MS_MERGE, MS_PREC, MS_ORBIT, MS_LFO, MS_RAND, MS_VEL };
 enum { MD_OFF, MD_IDX, MD_FILT, MD_RES, MD_SAT, MD_PAN, MD_PITCH, MD_AMP, MD_ONDA, MD_IMIX, MD_SKY, MD_N };
 typedef struct {                                    /* what the main loop works out for an event (ev_start) */
@@ -90,7 +91,7 @@ typedef struct {                                    /* what the main loop works 
     int32_t prec;                                   /* PRECESSIONE, Q15 */
     uint32_t iota0;                                 /* the inclination, a phase */
     int32_t pan_l, pan_r;                           /* the place in the sky, Q15 */
-    int32_t cr[NM][3], sr[NM][3];                   /* the resonators: [ring, coda, release], Q30 */
+    int32_t cr[NM][5], sr[NM][5];                   /* the resonators: [ring, coda, release, frozen (0.6 CONGELA), growing (INVERSO)], Q30 */
     int32_t mamp[NM];                               /* each mode's share at the merger, Q15 */
     int32_t ing[NM];                                /* MATERIA into each mode: its bandwidth (1 - r), Q15, so a long one rings no louder */
     int32_t coda_lv;                                /* the level where the coda takes over, Q15 of the peak */
@@ -119,14 +120,20 @@ typedef struct {                                    /* what the main loop works 
     /* 0.3 */
     int32_t e_amt;                                  /* the engine's knob (INDICE, APERTURA, PIEGHE, BRILLANZA, VOCALE), Q15 */
     uint32_t ks_d8;                                 /* CORDA: the loop's delay, Q8 frames (the period less the filter's own) */
-    int32_t ks_g[3];                                /* its loss a pass: ringing, held, let go (Q15) */
+    int32_t ks_g[4];                                /* its loss a pass: ringing, held, let go, frozen (Q15) */
     int32_t ks_b;                                   /* its brightness: the loop's one-pole, Q15 */
     /* 0.4 */
     int32_t station;                                /* RADIO: its place on the dial (0 .. 100, Q8) */
     int32_t fin_p;                                  /* FINALE: the exponent of the time left, Q12 (1 the physical law) */
     uint32_t hold;                                  /* SOSPENSIONE: frames at the top before the merger */
     int32_t glk;                                    /* APPRODO: the glide's step a block, Q15 */
-    int32_t rad[NM][3];                             /* the resonators' radii (ring, coda, release), Q30 */
+    int32_t rad[NM][5];                             /* the resonators' radii (ring, coda, release, frozen, growing), Q30 */
+    /* 0.6 */
+    uint8_t fus, rev, frz, nd;                      /* FUSIONE 0 by itself, 1 at the key's release, 2 on command; reversed; CONGELA on; degrees */
+    uint32_t rush;                                  /* TUFFO: the plunge's frames */
+    uint32_t swell;                                 /* INVERSO: the growing ring's frames */
+    int32_t deg[NDEG];                              /* the physics' scale (CHIRP SCALA), Q16 semitones over the tonic */
+    int32_t sw0[NM];                                /* INVERSO: where each mode starts (Q15 of its share at the peak) */
 } ev_t;
 typedef struct {
     ev_t e;
@@ -170,10 +177,14 @@ typedef struct {
     int32_t rdet;                                   /* RADIO: the mistuning, octaves Q16 */
     int32_t rsig;                                   /* RADIO: how well tuned (Q15, 1 on the station) */
     int32_t kill;                                   /* 0.4.1: the governor lets it go: its level falling (Q15, 0 = it sounds) */
+    uint32_t spd;                                   /* 0.6 TUFFO: the inspiral's speed (Q8, 0 its own) */
+    uint32_t sleft;                                 /* INVERSO: the growing ring's frames left */
+    int32_t fin;                                    /* INVERSO: the reversed chirp's fade in (Q15) */
 } vstate_t;
 static vstate_t vs[NV];                             /* the ISR's */
 static ev_t ev_pend[NV];                            /* the main loop's: complete when ev_trig[v] is set */
 static volatile uint8_t ev_trig[NV], ev_gate[NV];
+static volatile uint8_t ev_go[NV];                  /* 0.6 FUSIONE A COMANDO: the main loop says merge now */
 static volatile uint8_t hold_on;                    /* HOLD: the codas go on */
 /* for the screen (written by the ISR once a block) */
 typedef struct { volatile uint8_t stage; volatile uint32_t hz16, phi, prog; volatile int32_t amp, amode[NM]; volatile uint32_t mhz16[NM]; volatile int32_t idx_now, fc_hz; } vis_t;
@@ -380,6 +391,18 @@ VFAST static inline int32_t svf(int32_t x, int32_t f, int32_t d, int32_t *lp, in
     }
 }
 
+VAI static inline int32_t deg_snap16(int32_t x16, uint32_t tonic, const int32_t *deg, uint32_t n)   /* 0.6: to the nearest degree */
+{
+    int32_t rel = x16 - ((int32_t)tonic << 16), oct = rel >= 0 ? rel / (12 << 16) : -((-rel + (12 << 16) - 1) / (12 << 16));
+    int32_t r = rel - oct * (12 << 16), best = deg[0], bd = 0x7FFFFFFF, d;
+    uint32_t i;
+    for (i = 0; i <= n; i++) {
+        int32_t g = i < n ? deg[i] : deg[0] + (12 << 16);
+        d = r - g; if (d < 0) d = -d;
+        if (d < bd) { bd = d; best = g; }
+    }
+    return ((int32_t)tonic << 16) + oct * (12 << 16) + best;
+}
 VAI static inline void rot_q30(uint32_t inc, int32_t r, int32_t *c, int32_t *s)   /* r (cos, sin) of a step, Q30, the length made exact */
 {
     int64_t c30 = (int64_t)cos_q15(inc) << 15, s30 = (int64_t)sin_q15(inc) << 15, n, k;
@@ -558,6 +581,36 @@ VFAST static void ev_begin(uint32_t v)
     for (k = 0; k < NM; k++) vis[v].mhz16[k] = k < s->e.nm ? hz16_of_inc(s->e.ring_inc[k]) : 0u;
     vis[v].amp = 0;
     vis[v].prog = 0;
+    s->spd = 0; s->fin = 32767; ev_go[v] = 0;
+    if (s->e.rev) {                                 /* 0.6 INVERSO: the ring first, growing from far after the merger to it */
+        static const uint8_t MM[NM] = {2, 3, 2, 4};
+        int32_t a = s->e.amp;
+        for (k = 0; k < s->e.nm; k++) {
+            int32_t am = (int32_t)(((int64_t)((a * s->e.mamp[k]) >> 15) * s->e.sw0[k]) >> 15);
+            uint32_t ph = s->phi * MM[k];
+            s->re[k] = (cos_q15(ph) * am) >> 7;
+            s->im[k] = (sin_q15(ph) * am) >> 7;
+        }
+        s->peak = (a << 8) + 1;
+        s->ipk = (int32_t)(0x3FFFFFFFu / (uint32_t)((s->peak >> 8) + 1));
+        s->ostep = s->e.inc_m >> 1;
+        s->sph = s->phi;
+        s->eenv = (int32_t)(((int64_t)a * s->e.sw0[0]) >> 15);
+        s->sleft = s->e.swell;
+        s->xf = 0;
+        s->stage = ST_SWELL;
+    }
+}
+VFAST static void ev_unmerge(vstate_t *s)            /* 0.6 INVERSO: at the merger, the chirp backwards (it falls, it fades) */
+{
+    s->dcl += s->ol; s->dcr += s->orr;              /* the ring's last value fades: no step */
+    s->stage = ST_INSP;
+    s->left = 0;                                    /* (reversed: the time since the merger) */
+    s->a_now = 0;
+    s->fin = 0;
+    s->fqp = s->fdp = 0;
+    s->menv = 32767;
+    s->f_lp[0] = s->f_lp[1] = s->f_bp[0] = s->f_bp[1] = 0;
 }
 VFAST static void ev_merge(vstate_t *s)                   /* the ringdown takes over, phase for phase */
 {
@@ -686,7 +739,7 @@ VFAST static void ev_block(uint32_t v, int32_t *out, uint32_t n)
     if (s->stage == ST_INSP) {
         uint32_t sq, x, inc22, step, step2, xeng = e->eng >= 2u && e->eng != 4u;
         int32_t l2, a0, a1, a33, a44, a21, v1, v2, dm, I, sub = 0, lv2 = e->lv2, ebp[BLK], ebx[BLK], ksum = 0;
-        sq = (uint32_t)(((uint64_t)s->left * e->rtc) >> 16);   /* the time left, Q16 of the inspiral */
+        sq = (uint32_t)(((uint64_t)s->left * e->rtc) >> 16);   /* the time left, Q16 of the inspiral (INVERSO: the time since) */
         if (sq > 65536u) sq = 65536u;
         if (e->fin_p != 4096 && sq) {              /* FINALE: the time bent: under 1 a late whoop, over 1 a long top */
             int32_t lt = log2_q16(sq) - (16 << 16);
@@ -696,7 +749,9 @@ VFAST static void ev_block(uint32_t v, int32_t *out, uint32_t n)
         l2 = -((log2_q16(x) - (16 << 16)) * 3) >> 3;    /* log2 (f / fM) */
         s->f_l2 = l2;
         inc22 = (uint32_t)(((uint64_t)e->inc_m * exp2_q16(l2 + mul15(s->md[MD_PITCH], 65536) + s->rdet)) >> 16);
-        if (e->cq == 1u) {                          /* CHIRP SCALA: the wave climbs the scale's steps */
+        if (e->cq == 1u && e->nd) {                 /* 0.6: the physics' scales, to the fraction */
+            inc22 = inc_of(deg_snap16(e->note_m16 + 12 * l2, e->tonic % 12u, e->deg, e->nd));
+        } else if (e->cq == 1u) {                   /* CHIRP SCALA: the wave climbs the scale's steps */
             int32_t nn = (e->note_m16 + 12 * l2 + 32768) >> 16;
             inc22 = inc_of(snap_note(nn, e->smask, e->tonic) << 16);
         } else if (e->cq == 2u && e->inc_h) {       /* CHIRP ARMONICI: the harmonics of fM / 16, closer as it climbs */
@@ -707,6 +762,12 @@ VFAST static void ev_block(uint32_t v, int32_t *out, uint32_t n)
         step = inc22 >> 1;                              /* the orbit: half the wave */
         step2 = e->r2_q16 ? (uint32_t)(((uint64_t)step * e->r2_q16) >> 16) : 0u;
         a1 = (int32_t)((exp2_q16(e->eng >= 2u ? l2 / 3 : l2 * 2 / 3) * (uint32_t)e->amp) >> 16);   /* A ~ f^(2/3) (the engines: f^(1/3), present from the start) */
+        if (e->rev) {                               /* 0.6 INVERSO: in from the merger (13 ms), out over the last sixth */
+            uint32_t rest = s->left < e->tc ? e->tc - s->left : 0u, f6 = e->tc / 6u + 1u;
+            if (s->fin < 32767) { s->fin += 1800; if (s->fin > 32767) s->fin = 32767; }   /* (13 ms) */
+            a1 = mul15(a1, s->fin);
+            if (rest < f6) a1 = (int32_t)(((int64_t)a1 * rest) / f6);
+        }
         v1 = (int32_t)(exp2_q16(l2 / 3) * 14746u >> 16);                    /* v ~ 0.45 (f/fM)^(1/3), Q15 */
         v2 = (v1 * v1) >> 15;
         dm = e->delta;
@@ -792,22 +853,37 @@ VFAST static void ev_block(uint32_t v, int32_t *out, uint32_t n)
         s->ksabs = ksum / (int32_t)n;
         s->ostep = step;
         s->orb += (step >> 5) * n;
-        if (s->left > n) s->left -= n;
-        else if (s->hl > n) { s->left = 0; s->hl -= n; }   /* SOSPENSIONE: at the top, a while */
-        else ev_merge(s);
+        if (e->rev) {                               /* INVERSO: back to the start, then silence */
+            s->left += n;
+            if (s->left >= e->tc) { s->stage = ST_OFF; s->dcl += s->ol; s->dcr += s->orr; }
+        } else {
+            uint32_t dn = s->spd ? (uint32_t)(((uint64_t)n * s->spd) >> 8) : n;
+            int wait = (e->fus == 1u && ev_gate[v]) || (e->fus == 2u && !ev_go[v]);
+            if (e->fus && !wait && !s->spd) {       /* 0.6 TUFFO: let go (or the command): the rest of the chirp in TUFFO's time */
+                uint64_t q = s->left > e->rush ? ((uint64_t)s->left << 8) / e->rush : 256u;
+                s->spd = q > 0x1000000u ? 0x1000000u : (uint32_t)q;
+                dn = (uint32_t)(((uint64_t)n * s->spd) >> 8);
+            }
+            if (s->left > dn) s->left -= dn;
+            else if (e->fus && wait) s->left = 0;  /* FUSIONE AL RILASCIO, A COMANDO: the last orbit, until then */
+            else if (s->hl > n && !s->spd) { s->left = 0; s->hl -= n; }   /* SOSPENSIONE: at the top, a while */
+            else ev_merge(s);
+        }
         vis[v].hz16 = hz16_of_inc(inc22);
         vis[v].amp = a1;
         vis[v].prog = (uint32_t)(65536u - (sq > 65536u ? 65536u : sq));
         vis[v].phi = s->phi;
         s->strain = a1 ? ratio15(sacc / (int32_t)n, a1) : 0;
     } else {                                        /* RING, CODA, REL: the resonators */
-        uint32_t set = s->stage == ST_RING ? 0u : s->stage == ST_CODA ? 1u : 2u, nm = e->nm, alg = e->eng == 1u ? e->alg_r : 0u;
+        uint32_t set = s->stage == ST_RING ? 0u : s->stage == ST_CODA ? 1u : s->stage == ST_REL ? 2u : 4u, nm = e->nm, alg = e->eng == 1u ? e->alg_r : 0u;
         uint32_t xeng = e->eng >= 2u && e->eng != 4u;
         int32_t e0, Ir = e->idx + mul15(e->idx, s->md[MD_IDX]), subamp = 0, ipk = s->ipk, ebp[BLK], ebx[BLK], en0 = s->eenv, en1 = 0, ksum = 0;
         int32_t mixm = e->eng == 5u ? 6500 : e->eng == 4u ? 9000 : 11000;   /* the engines: the remnant's modes under them */
         uint32_t mneed = alg == 4u || alg == 2u ? 0xAu : alg == 1u ? 0x3u : 0u, rown = 0, act;
         int32_t glr, rcc[NM], rss[NM];   /* CAMPANA, SPIRALE: modes 1 and 3; BINARIA: 0 and 1 */
         if (Ir < 0) Ir = 0;
+        if (set <= 1u && e->frz && (ev_gate[v] || hold_on)) set = 3u;   /* 0.6 CONGELA: held, the ring stands */
+        if (s->stage == ST_SWELL && s->sleft < 220u) amul = mul15(amul, (int32_t)s->sleft * 148);   /* its last 5 ms: out, the chirp comes */
         vis[v].idx_now = Ir;
         base_inc = e->ring_inc[0];
         {
@@ -850,7 +926,7 @@ VFAST static void ev_block(uint32_t v, int32_t *out, uint32_t n)
             act = 0;
             for (k = 0; k < nm; k++) {
                 int32_t m = (s->re[k] < 0 ? -s->re[k] : s->re[k]) + (s->im[k] < 0 ? -s->im[k] : s->im[k]);
-                if (k < lim && (m >= 384 || k == 0u || s->xf || (e->smp_on && e->use == 0u))) act |= 1u << k;
+                if (k < lim && (m >= 384 || k == 0u || s->xf || s->stage == ST_SWELL || (e->smp_on && e->use == 0u))) act |= 1u << k;
                 else { s->re[k] = 0; s->im[k] = 0; }
             }
         }
@@ -920,7 +996,7 @@ VFAST static void ev_block(uint32_t v, int32_t *out, uint32_t n)
                     ex += mul15(s->kexc, (s->peak >> 8) * 3 / 2);
                     s->ksx--;
                 }
-                y = ks_tick(s, ex, hold_on == 2u && set == 1u ? 32740 : e->ks_g[set], e->ks_b, e->ks_d8);
+                y = ks_tick(s, ex, hold_on == 2u && set == 1u ? 32740 : e->ks_g[set > 3u ? 0u : set], e->ks_b, e->ks_d8);
                 hp += (y * 21) >> 5; hx += (ks_tap(s, e->ks_d8 / 768u) * 21) >> 5;
                 ksum += y < 0 ? -y : y;
             }
@@ -958,9 +1034,12 @@ VFAST static void ev_block(uint32_t v, int32_t *out, uint32_t n)
             s->strain = pk ? ratio15(sacc / (int32_t)n, pk) : 0;
         }
         e0 = (s->re[0] < 0 ? -s->re[0] : s->re[0]) + (s->im[0] < 0 ? -s->im[0] : s->im[0]);
-        if (s->stage == ST_RING && e0 < (int32_t)(((int64_t)s->peak * e->coda_lv) >> 15)) s->stage = ST_CODA;
-        if (s->stage == ST_CODA && !ev_gate[v] && !hold_on) s->stage = ST_REL;
-        if (s->stage == ST_REL && (ev_gate[v] || hold_on)) s->stage = ST_CODA;
+        if (s->stage == ST_SWELL) { if (s->sleft > n) s->sleft -= n; else ev_unmerge(s); }
+        else {
+            if (s->stage == ST_RING && e0 < (int32_t)(((int64_t)s->peak * e->coda_lv) >> 15)) s->stage = ST_CODA;
+            if (s->stage == ST_CODA && !ev_gate[v] && !hold_on) s->stage = ST_REL;
+            if (s->stage == ST_REL && (ev_gate[v] || hold_on)) s->stage = ST_CODA;
+        }
         {
             int32_t tot = 0;
             for (k = 0; k < nm; k++) {
@@ -969,7 +1048,7 @@ VFAST static void ev_block(uint32_t v, int32_t *out, uint32_t n)
                 vis[v].amode[k] = m >> 8;
             }
             if (e->eng == 4u) s->ksabs = ksum / (int32_t)n;
-            if (tot < 2048 && !s->kenv && (s->stage != ST_RING || tot < 256) && (e->eng != 4u || (s->ksabs < 6 && !s->ksx))) s->stage = ST_OFF;
+            if (s->stage >= ST_RING && s->stage != ST_SWELL && tot < 2048 && !s->kenv && (s->stage != ST_RING || tot < 256) && (e->eng != 4u || (s->ksabs < 6 && !s->ksx))) s->stage = ST_OFF;
             vis[v].amp = tot >> 8;
         }
         vis[v].hz16 = hz16_of_inc(e->ring_inc[0]);

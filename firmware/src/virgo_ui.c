@@ -120,6 +120,44 @@ static void spec_blit(int32_t x0, int32_t y0, int32_t w, int32_t h, int32_t step
 /* ---- the header */
 static void draw_vbg(int32_t h) { vg_vgrad(0, 0, 240, h, C_BG0, C_BG1); }
 static uint32_t bt_mark;                            /* 0 off, 1 on, 2 linked (VIRGO + Bluetooth) */
+/* 0.6: the battery, as M-VAVE's own firmware shows it (its thresholds on the ADC, from Felucca's ui_draw.c): 4 marks
+ * green, 3 green, 2 amber, 1 red and blinking; a bolt when USB powers it. 4 points of hysteresis on each threshold. */
+static const uint16_t BATT_T[3] = {531, 561, 591};
+static uint32_t batt_level(void)
+{
+    static uint32_t lv;
+    uint32_t r = batt_raw, up = 1, dn = 1, k;
+    if (!r) return lv ? lv : 4u;
+    for (k = 0; k < 3u; k++) { if (r >= BATT_T[k] + 4u) up = k + 2u; if (r + 4u >= BATT_T[k]) dn = k + 2u; }
+    if (!lv) { lv = r >= BATT_T[2] ? 4u : r >= BATT_T[1] ? 3u : r >= BATT_T[0] ? 2u : 1u; return lv; }
+    if (up > lv) lv = up;
+    else if (dn < lv) lv = dn;
+    return lv;
+}
+static uint32_t batt_state(void)                    /* what the header shows: the level, USB, the blink */
+{
+    uint32_t lv = batt_level(), u = batt_usb() ? 1u : 0u;
+    return lv | u << 3 | (!u && lv == 1u ? (fm1_ms >> 9 & 1u) << 4 : 0u);
+}
+static void draw_batt(int32_t x, int32_t y)          /* 20 x 10 and the pole */
+{
+    uint32_t st = batt_state(), lv = st & 7u, k, oc = 0x6C7E9A;
+    vg_rect(x, y, 20, 1, oc, 256); vg_rect(x, y + 9, 20, 1, oc, 256);
+    vg_rect(x, y + 1, 1, 8, oc, 256); vg_rect(x + 19, y + 1, 1, 8, oc, 256);
+    vg_rect(x + 20, y + 3, 2, 4, oc, 256);
+    if (st & 8u) {                                  /* USB: a bolt */
+        uint32_t c = 0x5CE08A;
+        vg_line((x + 11) * 16, (y + 1) * 16 + 8, (x + 7) * 16, (y + 5) * 16 + 8, c, 256);
+        vg_line((x + 7) * 16, (y + 5) * 16 + 8, (x + 12) * 16, (y + 4) * 16 + 8, c, 256);
+        vg_line((x + 12) * 16, (y + 4) * 16 + 8, (x + 8) * 16, (y + 8) * 16 + 8, c, 256);
+        return;
+    }
+    for (k = 0; k < lv; k++) {
+        uint32_t c = lv >= 3u ? 0x5CE08A : lv == 2u ? C_AMBER : 0xFF4A3C;
+        if (lv == 1u && !(st & 16u)) c = 0x5A2A2A;  /* the last mark blinks */
+        vg_rect(x + 2 + (int32_t)k * 4, y + 2, 3, 6, c, 256);
+    }
+}
 static void draw_header(void)
 {
     char s[40];
@@ -127,7 +165,7 @@ static void draw_header(void)
     vg_begin(240, HDR_H, 0x0A0F1D);
     vg_rect(0, HDR_H - 1, 240, 1, 0x1A2236, 256);
     if (lmsg[0]) {
-        vg_clip(0, 0, 198, HDR_H);
+        vg_clip(0, 0, 178, HDR_H);
         vg_text(6, 15, &F_SM, lmsg, C_AMBER, 256);
         vg_noclip();
     } else if (save_mode) {
@@ -136,8 +174,8 @@ static void draw_header(void)
         cat(e, pr[save_dest].used ? (t_savehold ? "  TIENI..." : "  SOSTITUISCI?") : "  VUOTO");
         vg_text(6, 15, &F_SM, s, pr[save_dest].used ? 0xFF6A5C : C_AMBER, 256);
         if (t_savehold) {                           /* the bar that fills while SAVE is held */
-            uint32_t w = (fm1_ms - t_savehold) * 190u / 1000u;
-            vg_rect(6, 18, (int32_t)(w > 190u ? 190u : w), 2, 0xFF6A5C, 256);
+            uint32_t w = (fm1_ms - t_savehold) * 170u / 1000u;
+            vg_rect(6, 18, (int32_t)(w > 170u ? 170u : w), 2, 0xFF6A5C, 256);
         }
     } else {
         uint32_t pi = pend_preset >= 0 ? (uint32_t)pend_preset : cur_preset, pw;
@@ -146,14 +184,14 @@ static void draw_header(void)
         *e++ = ' '; *e = 0;
         x = vg_text(x, 16, &F_SM, s, C_FAINT, 256);
         pw = (uint32_t)vg_text_w(&F_SM, page < NPAGE + 2u ? PAGE[page] : "");
-        vg_clip(0, 0, 196 - (int32_t)pw - 6, HDR_H);
+        vg_clip(0, 0, 176 - (int32_t)pw - 6, HDR_H);
         x = vg_text(x, 16, &F_TI, preset_name(pi), pend_preset >= 0 ? C_DIM : C_TXT, 256);
         if (edited && pend_preset < 0) vg_disc((x + 4) * 16, 9 * 16, 32, C_AMBER, 256);
         vg_noclip();
-        vg_text_al(196, 15, &F_SM, page < NPAGE + 2u ? PAGE[page] : "", acc, 256, 2);
+        vg_text_al(176, 15, &F_SM, page < NPAGE + 2u ? PAGE[page] : "", acc, 256, 2);
     }
     for (v = 0; v < NV; v++) {                      /* the four events */
-        int32_t x = 204 + (int32_t)v * 6;
+        int32_t x = 184 + (int32_t)v * 6;           /* (0.6: 20 px to the left, for the battery) */
         uint32_t st = vis[v].stage;
         vg_disc(x * 16, 11 * 16, 30, 0x2A3348, 256);
         if (st != ST_OFF) {
@@ -163,15 +201,16 @@ static void draw_header(void)
         }
     }
     if (gov_max || lim_seen)                        /* 0.4.1: a line under the events: amber, the CPU is cutting; red, the limiter */
-        vg_rect(201, 18, 24, 2, lim_seen ? 0xFF4A3C : C_AMBER, 256);
+        vg_rect(181, 18, 24, 2, lim_seen ? 0xFF4A3C : C_AMBER, 256);
 #if GRANA_BT
     {   /* the Bluetooth rune: grey off, dim on, cyan linked */
         uint32_t c = bt_mark == 2u ? C_CYAN : bt_mark ? 0x4C6C88 : 0x2A3348;
-        vg_line(229 * 16, 7 * 16, 234 * 16, 13 * 16, c, 256); vg_line(234 * 16, 13 * 16, 231 * 16 + 8, 15 * 16 + 8, c, 256);
-        vg_line(231 * 16 + 8, 15 * 16 + 8, 231 * 16 + 8, 4 * 16 + 8, c, 256); vg_line(231 * 16 + 8, 4 * 16 + 8, 234 * 16, 7 * 16, c, 256);
-        vg_line(234 * 16, 7 * 16, 229 * 16, 13 * 16, c, 256);
+        vg_line(207 * 16, 7 * 16, 212 * 16, 13 * 16, c, 256); vg_line(212 * 16, 13 * 16, 209 * 16 + 8, 15 * 16 + 8, c, 256);
+        vg_line(209 * 16 + 8, 15 * 16 + 8, 209 * 16 + 8, 4 * 16 + 8, c, 256); vg_line(209 * 16 + 8, 4 * 16 + 8, 212 * 16, 7 * 16, c, 256);
+        vg_line(212 * 16, 7 * 16, 207 * 16, 13 * 16, c, 256);
     }
 #endif
+    draw_batt(215, 6);
     cv_blit(0, 0);
 }
 
@@ -765,6 +804,7 @@ static void draw_midipic(void)
 #ifdef FL_JEDEC_OK
         e = flash_tag(e); e = cat(e, "  ");
 #endif
+        e = cat(e, "BATT "); e = cat_u(e, batt_raw); e = cat(e, batt_usb() ? " USB  " : "  ");   /* 0.6: the raw value, to check the thresholds */
         e = cat(e, "\x84  AUDIO ");
         e = cat_d1(e, audio_max / 100u); e = cat(e, " ms");
         vg_text_al(120, 120, &F_XS, t, gov_max ? C_AMBER : C_FAINT, 256, 1);
@@ -1297,6 +1337,126 @@ static void draw_radio(void)
     e = s; (void)e;
     vg_text(6, 126, &F_XS, s, 0xFF8A70, 256);
 }
+/* ---- 0.6: EVENTO, TURING, RITMO */
+static void draw_evento(void)                       /* an event's shape: the inspiral, the wait, the plunge, the merger, the (frozen) ring */
+{
+    static int16_t ys[224], yr[224];
+    uint32_t c = PG_ACC[PG_EVT], fus = par[P_FUSM] % 3u, cg = par[P_CONG], inv = par[P_INV], i, w;
+    int32_t x0 = 8, n = 224, base = 112, h = 74, xi = 84, xw, xm, xf;
+    char s[32], *e;
+    xw = fus ? 126 : xi;
+    xm = fus ? xw + 4 + (int32_t)par[P_TUFFO] * 30 / 100 : 100;
+    xf = cg ? xm + 6 + (int32_t)(cg >= 100u ? 90u : cg * 60u / 100u) : xm;
+    for (i = 0; i < (uint32_t)n; i++) {
+        int32_t x = (int32_t)i, a;
+        if (x < xi) { int32_t t = x * 256 / xi; a = 10 + (((t * t) >> 8) * t >> 8) * 42 / 256; }
+        else if (x < xw) a = 52;                    /* the last orbit, waiting */
+        else if (x < xm) a = 52 + (x - xw) * (h - 52) / (xm - xw > 0 ? xm - xw : 1);
+        else if (x < xf) a = h - (cg >= 100u ? 0 : (x - xm) * 6 / (xf - xm + 1));
+        else { int32_t dx = x - xf; a = (int32_t)(((uint32_t)(cg >= 100u ? h : h - 6) * (exp2_q16(-dx * 65536 / (18 + (int32_t)par[P_SMORZ] / 4)) >> 4)) >> 12); }
+        ys[i] = (int16_t)((base - a) * 16);
+    }
+    for (i = 0; i < (uint32_t)n; i++) yr[i] = ys[n - 1 - (int32_t)i];
+    draw_vbg(VIS_H);
+    vg_rect(x0, base, n, 1, 0xFFFFFF, 30);
+    if (inv) vg_curve(x0, yr, n, C_VIOL, 50u + inv * 2u, 0);
+    vg_fill_under(x0, ys, n, base, base - h, c, 70, 8);
+    vg_curve(x0, ys, n, c, 256, 70);
+    for (w = 0; w < 16u; w++) vg_rect(x0 + xm, base - h - 4 + (int32_t)w * 5, 1, 3, 0xFFFFFF, 90);   /* the merger */
+    if (fus) {
+        vg_text_al(x0 + (xi + xw) / 2, base - 58, &F_XS, fus == 1u ? "TIENI" : "REC", c, 256, 1);
+        vg_text_al(x0 + xm - 2, base - h - 8, &F_XS, "TUFFO", C_DIM, 256, 2);
+    }
+    if (cg) vg_text_al(x0 + (xm + xf) / 2 + 4, base - h + 12, &F_XS, cg >= 100u ? "FERMO" : "CONGELA", 0xBFE6FF, 256, 1);
+    vg_text(6, 14, &F_SM, "FUSIONE", C_TXT, 256);
+    vg_text(72, 14, &F_SM, FUSN[fus], c, 256);
+    {   /* what waits now */
+        uint32_t v, nw = 0, nr = 0;
+        for (v = 0; v < NV; v++) {
+            if (vs[v].stage == ST_SWELL || (vs[v].stage == ST_INSP && vs[v].e.rev)) nr++;
+            else if (vs[v].stage == ST_INSP && vs[v].e.fus && vs[v].left == 0u && !vs[v].spd) nw++;
+        }
+        if (nw) { e = cat_u(s, nw); cat(e, fus == 2u ? " IN ATTESA: REC" : " IN ATTESA"); vg_text_al(234, 30, &F_XS, s, C_AMBER, 256, 2); }
+        if (nr) { e = cat_u(s, nr); cat(e, " AL CONTRARIO"); vg_text_al(234, 42, &F_XS, s, C_VIOL, 256, 2); }
+    }
+    if (inv) { e = cat(s, "INVERSO "); if (inv >= 100u) cat(e, "SEMPRE"); else { e = cat_u(e, inv); cat(e, "%"); } vg_text(6, 126, &F_XS, s, C_VIOL, 256); }
+    else vg_text(6, 126, &F_XS, "avanti: spirale, fusione, coda", C_FAINT, 256);
+}
+static void draw_turing(void)                       /* the register going round, and the notes it chose */
+{
+    uint32_t c = PG_ACC[PG_TUR], L = (uint32_t)par[P_TLEN] + 2u, k, mode = par[P_NOTE] % 3u;
+    int32_t cx = 56, cy = 72, R = 40;
+    char s[32], *e;
+    draw_vbg(VIS_H);
+    vg_ring(cx * 16, cy * 16, R * 16, 10, 0xFFFFFF, 26);
+    for (k = 0; k < 16u; k++) {                     /* bit k at the angle of k: the loop's L lit, the rest a memory */
+        uint32_t an = k * (0xFFFFFFFFu / 16u), on = (uint32_t)tu_reg >> k & 1u, in = k < L;
+        int32_t px = cx * 16 + ((sin_q15(an) * R * 16) >> 15), py = cy * 16 - ((cos_q15(an) * R * 16) >> 15);
+        if (on && in && k < 8u) vg_glow(px, py, 6, c, 150);
+        vg_disc(px, py, on ? 66 : 40, on ? (in ? c : C_DIM) : 0x2A3348, in ? 256u : 110u);
+    }
+    vg_arc(cx * 16, cy * 16, (R - 9) * 16, 24, 0, (8u * 1024u) / 16u, c, 120);   /* the eight bits read */
+    e = cat_u(s, tu_val); vg_text_al(cx, cy + 2, &F_MD, s, mode ? C_TXT : C_FAINT, 256, 1);
+    e = cat_u(s, L); cat(e, " passi"); vg_text_al(cx, cy + 16, &F_XS, s, C_DIM, 256, 1);
+    vg_text(112, 14, &F_SM, NOTEN[mode], mode ? c : C_FAINT, 256);
+    {   /* the last notes, as bars over two octaves round their middle */
+        int32_t bx = 112, by = 26, bw = 122, bh = 84, i, lo = 0x7FFFFFFF, hi = -0x7FFFFFFF;
+        vg_rect(bx, by + bh, bw, 1, 0xFFFFFF, 30);
+        for (i = 0; i < (int32_t)tu_n; i++) { if (tu_hist[i] < lo) lo = tu_hist[i]; if (tu_hist[i] > hi) hi = tu_hist[i]; }
+        if (hi - lo < (12 << 16)) { int32_t m = (hi + lo) / 2; lo = m - (6 << 16); hi = m + (6 << 16); }
+        for (i = 0; i < (int32_t)tu_n; i++) {
+            int32_t x = bx + bw - 8 - i * 7, y = by + bh - 4 - (int32_t)(((int64_t)(tu_hist[i] - lo) * (bh - 8)) / (hi - lo));
+            vg_rect(x, y, 5, by + bh - y, c, i ? 90u : 230u);
+            vg_rect(x, y, 5, 2, i ? C_DIM : 0xFFFFFF, 256);
+        }
+        if (tu_n) {
+            int32_t x = tu_hist[0], nn = (x + 32768) >> 16, ct = ((x - (nn << 16)) * 100) >> 16;
+            note_name(s, (uint32_t)nn); e = s; while (*e) e++;
+            if (ct) { e = cat(e, ct > 0 ? " +" : " -"); e = cat_u(e, (uint32_t)(ct < 0 ? -ct : ct)); cat(e, "c"); }
+            vg_text_al(234, 124, &F_XS, s, C_TXT, 256, 2);
+        }
+    }
+    {
+        uint32_t ch = par[P_TCHG];
+        cat(s, !ch ? "BLOCCATO" : ch >= 100u ? "TUTTO NUOVO" : "CAMBIA");
+        vg_text(6, 124, &F_XS, mode ? s : "RUN: NOTE LIBERE", mode ? C_DIM : C_FAINT, 256);
+    }
+}
+static void draw_ritmo(void)                        /* the steps round a circle: the hits (euclid) or two dividers (poly) */
+{
+    uint32_t c = PG_ACC[PG_RIT], mode = par[P_RITMO] % 3u, N = rt_N(), k, flash = rt_hit_t && fm1_ms - rt_hit_t < 160u;
+    int32_t cx = 66, cy = 70, R = 44;
+    char s[32], *e;
+    draw_vbg(VIS_H);
+    vg_ring(cx * 16, cy * 16, R * 16, 10, 0xFFFFFF, 26);
+    if (mode == 2u) vg_ring(cx * 16, cy * 16, (R - 14) * 16, 10, 0xFFFFFF, 20);
+    for (k = 0; k < N; k++) {
+        uint32_t an = k * (0xFFFFFFFFu / N), h = mode ? rt_hit(k) : 0u, cur = run_on && k == rt_pos;
+        int32_t px = cx * 16 + ((sin_q15(an) * R * 16) >> 15), py = cy * 16 - ((cos_q15(an) * R * 16) >> 15);
+        int32_t qx = cx * 16 + ((sin_q15(an) * (R - 14) * 16) >> 15), qy = cy * 16 - ((cos_q15(an) * (R - 14) * 16) >> 15);
+        if (cur && flash) vg_glow(px, py, 9, c, 240);
+        vg_disc(px, py, h & 1u ? 70 : 34, h & 1u ? c : 0x2A3348, 256);
+        if (mode == 2u) vg_disc(qx, qy, h & 2u ? 62 : 30, h & 2u ? 0x9CFFB8 : 0x2A3348, 256);
+        if (cur) vg_ring(px, py, 96, 14, 0xFFFFFF, 220);
+    }
+    vg_text(126, 14, &F_SM, RITN[mode], mode ? c : C_FAINT, 256);
+    if (mode == 1u) {
+        uint32_t K = (uint32_t)par[P_ECOLPI] + 1u;
+        e = cat_u(s, K > N ? N : K); e = cat(e, " su "); cat_u(e, N);
+        vg_text(126, 36, &F_MD, s, C_TXT, 256);
+        vg_text(126, 54, &F_XS, "colpi sparsi ugualmente", C_DIM, 256);
+    } else if (mode == 2u) {
+        uint32_t A = (par[P_EPASSI] > 15u ? 15u : par[P_EPASSI]) + 1u, B = (par[P_ECOLPI] > 15u ? 15u : par[P_ECOLPI]) + 1u;
+        e = cat_u(s, A); e = cat(e, " : "); cat_u(e, B);
+        vg_text(126, 36, &F_MD, s, C_TXT, 256);
+        vg_text(126, 54, &F_XS, "due divisori del passo", C_DIM, 256);
+    } else vg_text(126, 40, &F_XS, "RUN a caso (TASSO)", C_FAINT, 256);
+    e = cat(s, "PASSO "); cat(e, par[P_RTEMPO] ? TEMPON[par[P_RTEMPO] % 6u] : "1/16");
+    if (par[P_RTEMPO] == 5u) cat(s, "PASSO 1/8");
+    vg_text(126, 80, &F_XS, s, C_DIM, 256);
+    vg_text(126, 96, &F_XS, run_on && par[P_RATE] ? "RUN IN CORSO" : "RUN FERMO (PLAY)", run_on && par[P_RATE] ? C_CYAN : C_FAINT, 256);
+    if (mode) { e = cat(s, "PROBABILIT\x83 "); e = cat_u(e, par[P_RATE] > 100u ? 100u : par[P_RATE]); cat(e, "%"); vg_text(126, 112, &F_XS, s, C_DIM, 256); }
+}
 static void draw_flash(void)                        /* the page's name, big, a moment after SELECT */
 {
     uint32_t i, at = 0;
@@ -1330,6 +1490,9 @@ static void draw_picture(void)
     case PG_DEJA: draw_deja(); break;
     case PG_RADIO: draw_radio(); break;
     case PG_SHIM: draw_shimmer(); break;
+    case PG_EVT: draw_evento(); break;
+    case PG_TUR: draw_turing(); break;
+    case PG_RIT: draw_ritmo(); break;
     default: draw_midipic(); break;
     }
     if (t_flash) draw_flash();

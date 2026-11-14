@@ -1,4 +1,4 @@
-# Mario Texture's VIRGO 0.5 – onde gravitazionali per l'M-VAVE FM-1
+# Mario Texture's VIRGO 0.6 – onde gravitazionali per l'M-VAVE FM-1
 
 Firmware synth per l'FM-1: ogni nota è una coalescenza di buchi neri (inspiral → fusione → ringdown), 4 eventi insieme.
 Fratello di [GRANA](https://github.com/mongio/grana-fm1), costruito sullo stesso impianto (Dinghy / Felucca), GPL-3.0.
@@ -31,9 +31,14 @@ reinstalli VIRGO dal suo editor.
 - web/virgo.template.html, web/make_virgo_page.py   la pagina: installazione, banca utente, guida
 
 ## Compilare
-    ./build.sh --release 0.5          # build/virgo-0.5.fwsc (FM-1_975)
-    ./build.sh --release 0.5 --bt     # build/virgo-0.5-bluetooth.fwsc (FM-1_985)
-    python3 web/make_virgo_page.py 0.5
+    ./build.sh --release 0.6          # build/virgo-0.6.fwsc (FM-1_976)
+    ./build.sh --release 0.6 --bt     # build/virgo-0.6-bluetooth.fwsc (FM-1_986)
+    APP_VER=0.6 sh web/build_virgo_wasm.sh
+    python3 web/make_virgo_page.py 0.6
+Dalla 0.6 si compila anche con il compilatore aperto LLVM per pi32v2 (github.com/jvitkauskas/pi32v2-llvm, release
+pi32v2-23.1.5-5) attraverso il suo "drop-in" (tools/dropin/make_dropin.sh di pi32v2-isa) al posto della toolchain JieLi:
+JIELI_TOOLCHAIN punta alla cartella del drop-in. Con LLVM la chiamata dall'interrupt audio (in flash) al codice audio in
+RAM passa da un puntatore (app_audio_p in platform.c): lld non mette ponti per i salti lunghi.
 Prova sul computer: cc -O1 -DDINGHY_HOST -Ifirmware/src -Ifirmware/gen -o build/host/virgo firmware/src/virgo.c,
 poi build/host/virgo build/host/out script.txt (schermi PPM e WAV; build/host/ubank.bin come banca utente).
 
@@ -41,6 +46,16 @@ poi build/host/virgo build/host/out script.txt (schermi PPM e WAV; build/host/ub
 Preset e impostazioni in 0x93000..0x97000 (libera su FM-1): GRANA (preset a 0x97000, impostazioni a 0xFC000) resta intatto.
 Banca utente condivisa con GRANA a 0x9B000. Codice 154 KB (206 KB con BT), RAM 28,6 KB (39,3 KB), pool 278 KB.
 Carico audio misurato in fm1-emu: 2,1–2,7 ms su 5,8 con 4 eventi e tutti gli effetti.
+
+## Novità 0.6 – evento, Turing, ritmo, scale dalla fisica, batteria
+- Batteria nell'intestazione, in alto a destra: pila a 4 tacche con le soglie del firmware M-VAVE (canale 3 dell'ADC: ≥591 quattro verdi, ≥561 tre verdi, ≥531 due ambra, sotto una rossa che lampeggia), 4 punti di isteresi, fulmine verde con l'USB. A una tacca compare "BATTERIA SCARICA" una volta. Il valore letto è nella pagina MIDI (BATT n), per controllare le soglie. Nell'intestazione eventi e spia BT si spostano di 20 px a sinistra.
+- EVENTO (SEL ×4): FUSIONE AUTOMATICA / AL RILASCIO (la binaria resta sull'ultima orbita finché tieni il tasto) / A COMANDO (aspetta REC, anche gli eventi di RUN); TUFFO, il tempo in cui si consuma il resto del chirp quando lasci o comandi (20 ms – 3 s); CONGELA, il ringdown allungato di 2^(n/10) mentre il tasto è tenuto (o HOLD), fermo a 100; INVERSO, la probabilità di un evento al contrario (i modi crescono fino alla fusione, poi il chirp scende e si spegne; con DÉJÀ VU anche il verso torna nel giro).
+- TURING (ARP ×3): le note di RUN da un registro a scorrimento come la Turing Machine (LUNGHEZZA 2–16, CAMBIO 0 bloccato … 100 tutto nuovo); NOTE TURING fra ESTENSIONE gradi della scala dal tasto più basso, NOTE SUBARMONICHE fra 1/1 … 1/DIVISORI di un'ottava sopra il tasto più alto, intonate pure.
+- RITMO (ARP ×4): EUCLIDEO (COLPI su PASSI, ROTAZIONE) o POLIRITMO (divisori A e B, SFASAMENTO) sulla griglia di TEMPO (LIBERO: sedicesimi); TASSO diventa la probabilità di ogni colpo.
+- SCALA: DAL RESTO (i modi del buco nero finale e i loro rapporti, alla ROTAZIONE di adesso) e ORBITALE (1/1 5/4 4/3 7/5 3/2 8/5 5/3 7/4). Fuori dai semitoni: valgono per CHIRP SCALA, ACCORDO e le note di RUN.
+- REC con FUSIONE A COMANDO fonde gli eventi in attesa (anche il REC dello SMC-Mixer); senza eventi in attesa fa un evento come prima.
+- Preset: 96 parametri (il record era già da 96). Quelli della 0.4 e 0.5 prendono EVENTO automatico, TURING e RITMO spenti; i preset di fabbrica rimasti con il loro nome ricevono i ritocchi della 0.6: BUCHI NERI (al rilascio, congela), CIELO LISA (inverso 35%), CATALOGO O4 (Turing), TONNETZ (euclideo 7 su 16, scala orbitale), ORBITE 2:3 (poliritmo 3:2, subarmoniche), CORDA NERA (scala dal resto, congela), CORO VIRGO (inverso, fusione a comando). CC 104–115 i parametri nuovi.
+- Compilata con il compilatore aperto LLVM (vedi Compilare). Nell'emulatore del chip, con un accordo di 4 note FM, il carico è circa il 4 % più alto della 0.5.1 compilata con JieLi.
 
 ## Novità 0.2
 - Pagine nuove: ARMONIA e FUSIONI (HOME ×2, ×3), MOTORE (SEL ×2), FILTRO (FX, poi INTERFEROMETRO), MOD A e MOD B (LFO, poi CIELO). 15 pagine.

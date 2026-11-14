@@ -158,7 +158,7 @@
 
   <section>
     <h2>Le pagine</h2>
-    <p>Le quattro manopole cambiano i parametri della pagina; SELECT scorre le pagine; ogni pulsante apre la sua. In alto: il preset, la pagina, i quattro eventi (azzurro inspiral, ambra fusione e ringdown, viola la coda) e, con il Bluetooth, la sua spia.</p>
+    <p>Le quattro manopole cambiano i parametri della pagina; SELECT scorre le pagine; ogni pulsante apre la sua. In alto: il preset, la pagina, i quattro eventi (azzurro inspiral, ambra fusione e ringdown, viola la coda), con il Bluetooth la sua spia e, a destra, la batteria (0.6: quattro tacche come nel firmware M-VAVE, il fulmine con l’USB).</p>
     <div class="shots" id="shots"></div>
   </section>
 
@@ -168,12 +168,12 @@
       <ul>
         <li><b>Tasti</b>: un evento ciascuno, fino a 4 insieme. Il tasto è l’altezza del ringdown; il chirp parte PARTENZA ottave sotto e sale. Tenendo il tasto la CODA resta; lasciandolo si spegne.</li>
         <li><b>HOME</b> SORGENTE, poi ARMONIA, poi FUSIONI; tenuto 0,6 s: HOLD (le code restano), di nuovo HOLD INFINITO (le code si fermano e non calano più), di nuovo spento. Anche il pedale di sustain (CC 64) fa HOLD.</li>
-        <li><b>SEL</b> CHIRP, FINALE, MOTORE · <b>EDIT</b> RINGDOWN · <b>FX</b> FILTRO, INTERFEROMETRO, RIVERBERO, SHIMMER, SPAZIO · <b>ENV</b> RUMORE, poi RADIO · <b>LFO</b> MOD A, MOD B, CIELO · <b>SEQ</b> CAMPIONE · <b>GLO</b> AUDIO, poi MIDI (e BLUETOOTH).</li>
-        <li><b>ARP</b> la pagina RUN, poi DÉJÀ VU (0.4: RUN si accende e si ferma con <b>PLAY</b>, da qualsiasi pagina). <b>REC</b> un evento a caso, subito.</li>
+        <li><b>SEL</b> CHIRP, FINALE, MOTORE, EVENTO · <b>EDIT</b> RINGDOWN · <b>FX</b> FILTRO, INTERFEROMETRO, RIVERBERO, SHIMMER, SPAZIO · <b>ENV</b> RUMORE, poi RADIO · <b>LFO</b> MOD A, MOD B, CIELO · <b>SEQ</b> CAMPIONE · <b>GLO</b> AUDIO, poi MIDI (e BLUETOOTH).</li>
+        <li><b>ARP</b> la pagina RUN, poi DÉJÀ VU, TURING, RITMO (RUN si accende e si ferma con <b>PLAY</b>, da qualsiasi pagina). <b>REC</b> un evento a caso, subito; con FUSIONE A COMANDO fa fondere gli eventi in attesa.</li>
         <li><b>ALGORITHM</b> il catalogo: rilevazioni vere (GW150914, GW170817 delle stelle di neutroni, GW190521, GW231123…) con le loro masse, rotazione e distanza, suonate sull’ultimo tasto.</li>
         <li><b>PRESETS</b> e <b>SAVE</b> come in GRANA: 48 posti; in SAVE le manopole scrivono il nome (cursore, lettera, dado, cancella).</li>
         <li><b>OCT− OCT+</b> l’ottava.</li>
-        <li><b>MIDI</b> (USB e presa TRS): note con velocity, CC 20–55 sui parametri nell’ordine delle pagine, Program Change per i preset, MIDI LEARN e clock in (RUN a tempo) dalla pagina MIDI.</li>
+        <li><b>MIDI</b> (USB e presa TRS): note con velocity, CC 20–115 sui parametri nell’ordine delle pagine (64 resta il pedale), Program Change per i preset, MIDI LEARN e clock in (RUN a tempo) dalla pagina MIDI.</li>
         <li><b>SMC-Mixer</b> (con il Bluetooth): fader MASSA 1, MASSA 2, ROTAZIONE, DURATA, INDICE FM, FREQUENZA del filtro, RIVERBERO, VOLUME; manopole 1–4 la pagina, 5–8 ARMONICHE, SMORZAMENTO, SATURAZIONE, RISONANZA; SELECT 1–8 SORGENTE, ARMONIA, FUSIONI, CHIRP, MOTORE, RINGDOWN, FILTRO, RUN; PLAY/STOP RUN, REC un evento, BANK i preset; MUTE 1 HOLD, MUTE 2 HOLD INFINITO, MUTE 3–8 FINALE, RADIO, DÉJÀ VU, RIVERBERO, SHIMMER, SPAZIO.</li>
       </ul>
     </div>
@@ -196,6 +196,10 @@
         <li><b>SHIMMER</b> (0.5, FX ×4): dentro la vasca del riverbero due testine leggono il suono trasposto e lo rimettono nel giro, così ogni ritorno sale (o scende) ancora. Cinque TIPI legati alla fisica: OTTAVA (sale di ottava, il classico), QUINTA, KERR (sale dell’intervallo fra i primi due modi del buco nero, che cambia con la ROTAZIONE), REDSHIFT (scende di ottava: la luce che si allunga allontanandosi), SPIRALE (sale per semitoni in una scala che gira, come l’orbita). La coda resta stabile anche al massimo.</li>
         <li><b>AUDIO</b> (0.5, GLO): VOLUME, BPM, COMP/LIMIT (un compressore morbido che sale con la manopola; il limitatore finale a −1 dB è sempre acceso), STEREO (da MONO a LARGO; oltre, AUTOPAN da 0,05 a 8 Hz).</li>
         <li><b>FINALE</b> (0.4, SEL ×2): la parte finale del chirp. FINALE piega il tempo (IMPROVVISO: resta in basso e scatta all’ultimo; DISTESO: arriva presto e si allunga in cima), PICCO alza o abbassa la frequenza della fusione (×0,5 … ×2), SOSPENSIONE tiene la cima fino a 8 s, APPRODO scivola dalla fusione alla nota (fino a 1,5 s). DURATA ora arriva a 3 minuti (oltre 100).</li>
+        <li><b>EVENTO</b> (0.6, SEL ×4). <b>FUSIONE</b>: AUTOMATICA (come sempre), AL RILASCIO (finché tieni il tasto le masse restano sull’ultima orbita; lasciandolo si fondono), A COMANDO (aspettano <b>REC</b>, anche quelle di RUN). <b>TUFFO</b>: quando lasci o comandi, il resto del chirp si consuma in quel tempo, da 20 ms a 3 s. <b>CONGELA</b>: mentre tieni il tasto (o HOLD) il ringdown dura 2<sup>n/10</sup> volte di più; a 100 resta fermo; lasciando cala come sempre. <b>INVERSO</b>: la probabilità che un evento vada al contrario: i modi del buco nero crescono fino alla fusione e poi il chirp scende e si spegne. Con DÉJÀ VU anche il verso torna nel giro.</li>
+        <li><b>TURING</b> (0.6, ARP ×3): le note di RUN da un registro a scorrimento come la Turing Machine di Music Thing Modular. LUNGHEZZA (2–16) bit girano in tondo, CAMBIO è la probabilità che il bit che torna si capovolga (0 il giro è bloccato, 100 tutto nuovo); otto bit letti come numero scelgono la nota. NOTE TURING: fra ESTENSIONE gradi della scala, dal tasto più basso suonato. NOTE SUBARMONICHE: fra i subarmonici 1/1 … 1/DIVISORI di un’ottava sopra il tasto più alto, intonati puri come gli oscillatori del Subharmonicon di Moog. Con FUSIONI RUN la nota resta nell’accordo.</li>
+        <li><b>RITMO</b> (0.6, ARP ×4): i colpi di RUN sulla griglia di TEMPO (con LIBERO a sedicesimi). EUCLIDEO: COLPI sparsi ugualmente su PASSI (3 su 8 il tresillo, 5 su 8, 7 su 16…), girati da ROTAZIONE. POLIRITMO: due divisori del passo, A e B, come due dei quattro ritmi del Subharmonicon; SFASAMENTO sposta B. TASSO diventa la probabilità di ogni colpo.</li>
+        <li><b>Scale dalla fisica</b> (0.6, in SCALA): <b>DAL RESTO</b> prende i modi del buco nero finale alla ROTAZIONE di adesso e tutti i rapporti fra loro, ripiegati in un’ottava: con rotazione lenta una scala fitta e strana, al massimo quasi solo quarte e quinte; girando ROTAZIONE la scala cambia. <b>ORBITALE</b>: le risonanze delle orbite (1:2:4 delle lune di Giove, 8:5, 5:3, 3:2, 4:3, 7:5 di TRAPPIST-1): 1/1 5/4 4/3 7/5 3/2 8/5 5/3 7/4. Sono fuori dai dodici semitoni: valgono per CHIRP SCALA, ACCORDO e le note di RUN.</li>
         <li><b>DÉJÀ VU</b> (0.4, ARP ×2): come in Marbles di Mutable Instruments, un anello di casualità. A sinistra del centro aumenta la probabilità che un evento ritorni invece di uno nuovo; al centro il giro è BLOCCATO e si ripete uguale; a destra lo stesso giro torna a salti. LUNGHEZZA 1–16 passi, DISPERSIONE quanto lontano vanno note, masse, distanze, rotazione; SU: solo RUN, o anche i tasti (le note sono tue, le sorgenti seguono il giro). Anche il ritmo di RUN ha il suo déjà vu.</li>
         <li><b>RADIO</b> (0.4, ENV ×2): ogni evento ha la sua stazione sulla scala, secondo la massa di chirp (da 1 a 100 masse solari). Con SINTONIA lontana senti la statica, con i crepitii e l’evanescenza; avvicinandoti arriva il fischio del battimento e l’onda, stonata come una voce in onde corte; sulla stazione l’onda è trovata. SELETTIVITÀ è quanto è larga una stazione, STATICA il fruscio. Con RUN acceso è una caccia alle onde.</li>
         <li><b>SPAZIO</b> (0.3, FX ×5): CORO, un ensemble a due voci incrociate che allarga tutto; ECO, un ping-pong a tempo (1/16 … 1/4.) che si scurisce a ogni ritorno, come un nastro.</li>
@@ -286,7 +290,10 @@ const SHOT_TXT = {
   deja: ['DÉJÀ VU (ARP ×2)', 'L’anello dei passi: il punto bianco è dove si trova; a destra se ritorna, è bloccato o salta. DÉJÀ VU, LUNGHEZZA, DISPERSIONE, SU.'],
   radio: ['RADIO (ENV ×2)', 'La scala per massa di chirp, le stazioni degli eventi (bianche quelle che suonano), l’ago rosso, il segnale: RUMORE, QUASI, ONDA TROVATA. RADIO, SINTONIA, SELETTIVITÀ, STATICA.'],
   spazio: ['SPAZIO (FX ×5)', 'Il CORO: le due voci che ondeggiano; l’ECO: i ritorni a sinistra e a destra, sempre più bassi. CORO, ECO, TEMPO ECO, RITORNO.'],
-  midi: ['MIDI (GLO ×2)', 'CLOCK, RICEVI, LEARN, CANCELLA (OCT+ conferma).'],
+  evento: ['EVENTO (SEL ×4)', 'La forma di un evento: l’inspiral, l’attesa sull’ultima orbita (TIENI o REC), il tuffo, la fusione, il ringdown congelato; in viola l’evento al contrario. FUSIONE, CONGELA, INVERSO, TUFFO.'],
+  turing: ['TURING (ARP ×3)', 'Il registro: i bit nel giro (LUNGHEZZA) accesi, gli otto letti in mezzo come numero; a destra le ultime note, con i cent fuori dai semitoni. NOTE, CAMBIO, LUNGHEZZA, ESTENSIONE.'],
+  ritmo: ['RITMO (ARP ×4)', 'I passi in cerchio, i colpi pieni, l’anello bianco dove si trova RUN; nel POLIRITMO due anelli, A fuori e B dentro. RITMO, PASSI, COLPI, ROTAZIONE.'],
+  midi: ['MIDI (GLO ×2)', 'CLOCK, RICEVI, LEARN, CANCELLA (OCT+ conferma). In basso la versione, il chip flash, la batteria (il valore letto) e il carico dell’audio.'],
 };
 for (const [k, b] of Object.entries(SHOTS)) {
   const d = document.createElement('div'); d.className = 'shot';
@@ -803,7 +810,8 @@ const PAGEK = [['MASSA 1', 'MASSA 2', 'ROTAZIONE', 'DISTANZA'], ['DURATA', 'PART
   ['GERARCHIA', 'GRAVITÀ', 'TONFO', 'SUB'], ['TIPO', 'FREQUENZA', 'RISONANZA', 'DISTANZA'], ['SORGENTE', 'DESTINAZIONE', 'QUANTITÀ', 'VEL. LFO'],
   ['SORGENTE', 'DESTINAZIONE', 'QUANTITÀ', 'FORMA LFO'], ['CORO', 'ECO', 'TEMPO ECO', 'RITORNO'],
   ['FINALE', 'PICCO', 'SOSPENSIONE', 'APPRODO'], ['RIVERBERO', 'CODA RIV.', 'DENSITÀ', 'BRILLANZA'], ['DÉJÀ VU', 'LUNGHEZZA', 'DISPERSIONE', 'SU'],
-  ['RADIO', 'SINTONIA', 'SELETTIVITÀ', 'STATICA'], ['SHIMMER', 'TIPO', 'MOVIMENTO', 'PRE-DELAY'], ['CLOCK', 'RICEVI', 'LEARN', 'CANCELLA'], ['BLUETOOTH', 'DISPOSITIVO', 'MODO', 'AVVIO']];
+  ['RADIO', 'SINTONIA', 'SELETTIVITÀ', 'STATICA'], ['SHIMMER', 'TIPO', 'MOVIMENTO', 'PRE-DELAY'],
+  ['FUSIONE', 'CONGELA', 'INVERSO', 'TUFFO'], ['NOTE', 'CAMBIO', 'LUNGHEZZA', 'ESTENSIONE'], ['RITMO', 'PASSI', 'COLPI', 'ROTAZIONE'], ['CLOCK', 'RICEVI', 'LEARN', 'CANCELLA'], ['BLUETOOTH', 'DISPOSITIVO', 'MODO', 'AVVIO']];
 let node = null, ctx = null, keysMask = 0, engineOn = false;
 const send = (m) => { if (node) node.port.postMessage(m); };
 const sn = (t) => { $('simNote').textContent = t; };
@@ -827,8 +835,8 @@ knob($('kPresets'), 'PRESETS', 'preset', true, (d) => send({ type: 'enc', id: 6,
 knob($('kAlgo'), 'ALGORITHM', 'catalogo', true, (d) => send({ type: 'enc', id: 1, d }));
 const klab = [];
 for (let i = 0; i < 4; i++) { const d = document.createElement('div'); d.className = 'kn'; $('k4').appendChild(d); klab.push(knob(d, 'KNOB ' + (i + 1), PAGEK[0][i], false, (dd) => send({ type: 'enc', id: 2 + i, d: dd }))); }
-const BTN = [[2, 'FX', 'filtro … shimmer, spazio'], [3, 'SEL', 'chirp, finale, motore'], [4, 'ENV', 'rumore, radio'], [5, 'LFO', 'mod a·b, cielo'], [6, 'EDIT', 'ringdown'], [7, 'GLO', 'audio, midi'],
-  [8, 'HOME', 'sorg. arm. fus.'], [9, 'SAVE', 'salva'], [10, 'ARP', 'run, déjà vu'], [11, 'SEQ', 'campione'], [12, 'PLAY', 'run on/off'], [13, 'REC', 'evento']];
+const BTN = [[2, 'FX', 'filtro … shimmer, spazio'], [3, 'SEL', 'chirp, finale, motore, evento'], [4, 'ENV', 'rumore, radio'], [5, 'LFO', 'mod a·b, cielo'], [6, 'EDIT', 'ringdown'], [7, 'GLO', 'audio, midi'],
+  [8, 'HOME', 'sorg. arm. fus.'], [9, 'SAVE', 'salva'], [10, 'ARP', 'run, déjà vu, turing, ritmo'], [11, 'SEQ', 'campione'], [12, 'PLAY', 'run on/off'], [13, 'REC', 'evento / fusione']];
 const btnEl = new Map();
 function wireBtn(b, id) {
   const down = (e) => { e.preventDefault(); b.classList.add('down'); send({ type: 'button', id, down: 1 }); };

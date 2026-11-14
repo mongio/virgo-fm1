@@ -73,7 +73,7 @@ static void smc_button(uint32_t n)
     switch (n) {
     case 0x5Eu: if (!run_on) run_toggle(); break;                                       /* PLAY */
     case 0x5Du: if (run_on) run_toggle(); break;                                        /* STOP */
-    case 0x5Fu: run_event(); learn_say("EVENTO: ", evlog[0].name); break;                /* REC */
+    case 0x5Fu: rec_action(); break;                /* REC */
     case 0x2Eu: case 0x2Fu:                                                             /* BANK < > */
         pend_preset = -1;
         preset_recall((cur_preset + (n == 0x2Fu ? 1u : NPRESET - 1u)) % NPRESET);

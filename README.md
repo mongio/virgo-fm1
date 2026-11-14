@@ -12,7 +12,7 @@ in the catalogue, a detector you can tune like a radio, a long dense reverb with
 > uninstalls over USB; to go back to the stock firmware, reinstall it with the official updater or the
 > [FM-1 Firmware Hub](https://fm1.designburgapps.com). Use at your own risk.
 
-Version **0.5**. Sister of [GRANA](https://github.com/mongio/grana-fm1), the granular firmware for the same device.
+Version **0.6**. Sister of [GRANA](https://github.com/mongio/grana-fm1), the granular firmware for the same device.
 
 <p align="center"><img src="docs/intro.png" width="240" alt="VIRGO's opening screen"></p>
 <p align="center"><img src="docs/screens.png" width="720" alt="Eight of VIRGO's pages: source, chirp, ringdown, interferometer, reverb, shimmer, radio, déjà vu"></p>
@@ -68,6 +68,7 @@ page's four parameters. Names as on the screen.
 | SEL | CHIRP | DURATA | PARTENZA | ARMONICHE | PRECESSIONE |
 |  | FINALE | FINALE | PICCO | SOSPENSIONE | APPRODO |
 |  | MOTORE | MOTORE | ALGORITMO | (engine knob) | SATURAZIONE |
+|  | EVENTO | FUSIONE | CONGELA | INVERSO | TUFFO |
 | EDIT | RINGDOWN | MODI | SMORZAMENTO | ACCORDO | CODA |
 | FX | FILTRO | TIPO | FREQUENZA | RISONANZA | DISTANZA |
 |  | INTERFEROMETRO | BRACCIO | FINESSE | ONDA | MIX |
@@ -81,6 +82,8 @@ page's four parameters. Names as on the screen.
 |  | CIELO | DENSITÀ | DERIVA | BANDA | LIVELLO |
 | ARP | RUN | TASSO | MASSE | DISTANZE | TEMPO |
 |  | DÉJÀ VU | DÉJÀ VU | LUNGHEZZA | DISPERSIONE | SU |
+|  | TURING | NOTE | CAMBIO | LUNGHEZZA | ESTENSIONE |
+|  | RITMO | RITMO | PASSI | COLPI | ROTAZIONE |
 | SEQ | CAMPIONE | SUONO | USO | LIVELLO | INIZIO |
 | GLO | AUDIO | VOLUME | BPM | COMP/LIMIT | STEREO |
 |  | MIDI | CLOCK | RICEVI | LEARN | CANCELLA |
@@ -88,13 +91,18 @@ page's four parameters. Names as on the screen.
 
 A few words: SORGENTE source · MASSA mass · ROTAZIONE spin · FUSIONI mergers · PARTENZA start (octaves below) ·
 FINALE the chirp's last part (PICCO peak, SOSPENSIONE hold, APPRODO glide to the note) · MOTORE engine ·
-SMORZAMENTO damping · CODA tail/sustain · RUMORE noise · SINTONIA tuning · CIELO sky · RUN events arriving by
+SMORZAMENTO damping · CODA tail/sustain · EVENTO: FUSIONE when the masses merge (by themselves, when the key is
+let go, or on REC), CONGELA freeze the ringdown while held, INVERSO the chance of a reversed event, TUFFO the plunge
+time · TURING: RUN's notes from a Turing Machine shift register (scale degrees, or pure undertones 1/1…1/n) · RITMO:
+euclidean rhythm or two-divider polyrhythm on RUN's grid · SCALA also DAL RESTO (the remnant's own mode ratios) and
+ORBITALE (orbital resonances) · RUMORE noise · SINTONIA tuning · CIELO sky · RUN events arriving by
 themselves · CAMPIONE sample · RICEVI receive.
 
 Other controls: the keys play events (up to 4); HOME held = HOLD → HOLD INFINITO (frozen tails) → off, also the
 sustain pedal (CC 64); ALGORITHM = the catalogue of real detections (GW150914, GW170817, GW190521, GW231123…);
-PRESETS = 48 presets; SAVE = save (the knobs write the name); PLAY = RUN on/off; REC = one random event;
-OCT−/OCT+ = octave. MIDI over USB and the TRS jack: notes with velocity, CC 20+ on the parameters, Program Change,
+PRESETS = 48 presets; SAVE = save (the knobs write the name); PLAY = RUN on/off; REC = one random event (with
+FUSIONE A COMANDO: merge the waiting events);
+OCT−/OCT+ = octave. MIDI over USB and the TRS jack: notes with velocity, CC 20–115 on the parameters (64 stays the sustain pedal), Program Change,
 MIDI LEARN, clock in.
 
 **SMC-Mixer** (Bluetooth version): faders MASSA 1, MASSA 2, ROTAZIONE, DURATA, INDICE, FREQUENZA, RIVERBERO, VOLUME;
@@ -109,10 +117,15 @@ You need Linux x86-64 (or Docker), Python 3 with Pillow, the JieLi toolchain and
 ```sh
 tools/get_toolchain.sh                         # the JieLi toolchain in ~/.jieli
 export AC79_SDK=~/fw-AC79_AIoT_SDK             # with cpu/wl82/tools/ inside
-./build.sh --release 0.5 [--bt]                # build/virgo-0.5[-bluetooth].fwsc
-APP_VER=0.5 sh web/build_virgo_wasm.sh         # web/virgo.wasm, the simulator (clang with wasm32)
-python3 web/make_virgo_page.py 0.5             # web/virgo-editor.html (needs both packages; the screens are in docs/shots/)
+./build.sh --release 0.6 [--bt]                # build/virgo-0.6[-bluetooth].fwsc
+APP_VER=0.6 sh web/build_virgo_wasm.sh         # web/virgo.wasm, the simulator (clang with wasm32)
+python3 web/make_virgo_page.py 0.6             # web/virgo-editor.html (needs both packages; the screens are in docs/shots/)
 ```
+
+Since 0.6 it also builds with the open LLVM toolchain for pi32v2
+([jvitkauskas/pi32v2-llvm](https://github.com/jvitkauskas/pi32v2-llvm), release pi32v2-23.1.5-5) through the drop-in of
+[pi32v2-isa](https://github.com/jvitkauskas/pi32v2-isa) (`tools/dropin/make_dropin.sh`): point `JIELI_TOOLCHAIN` at
+the drop-in directory. The 0.6 release packages were built that way.
 
 On a computer: `cc -O2 -DDINGHY_HOST -Ifirmware/src -Ifirmware/gen -o build/host/virgo firmware/src/virgo.c`, then
 `build/host/virgo build/host/out script.txt` (screens as PPM and a WAV; the script format is in `tests/host.c`).
