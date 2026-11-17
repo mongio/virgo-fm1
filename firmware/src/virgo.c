@@ -707,7 +707,7 @@ static void ev_start(uint32_t note, uint32_t vel, uint32_t m1, uint32_t m2, uint
     e->use = par[P_USE];
     e->smp_lv = (int32_t)lvl_q15(par[P_SLV]);
     e->smp_start = 0;
-    ev_gate[v] = 1;
+    ev_gate[v] = (uint8_t)(ev_keyed ? 1u : 0u);       /* 0.6.2: RUN, REC, the catalogue: a key let go at once (before: held for ever, the coda never ended) */
     v_note[v] = (uint8_t)note;
     v_key[v] = 255;
     v_age[v] = ++ages;
@@ -958,7 +958,7 @@ static const uint8_t FX6[][3] = {
     {8, P_RITMO, 1}, {8, P_EPASSI, 14}, {8, P_ECOLPI, 6}, {8, P_SCALE, SC_ORBIT},   /* TONNETZ: 7 in 16, the orbits' scale */
     {9, P_RITMO, 2}, {9, P_EPASSI, 2}, {9, P_ECOLPI, 1}, {9, P_NOTE, 2}, {9, P_TEXT, 7},   /* ORBITE 2:3: 3 against 2, undertones */
     {12, P_SCALE, SC_RESTO}, {12, P_CONG, 55},                                  /* CORDA NERA: the remnant's own scale */
-    {13, P_INV, 60}, {13, P_FUSM, 2},                                           /* CORO VIRGO: backwards, and merged with REC */
+    {13, P_INV, 60},                                                             /* CORO VIRGO: backwards (0.6.2: no longer A COMANDO) */
 };
 typedef struct { uint8_t st, num, par, pad; } learn_t;
 #define NLEARN 32u
@@ -991,7 +991,7 @@ static void prec_factory(uint32_t i)
     r->name[11] = 0;
     for (k = 0; k < NP; k++) r->p[k] = k < NP5 ? FACT[i].p[k] : DEF2[k - NP1];
     for (k = 0; k < sizeof FX6 / sizeof FX6[0]; k++) if (FX6[k][0] == i) r->p[FX6[k][1]] = FX6[k][2];   /* 0.6's knobs in a few */
-    r->used = 1;
+    r->used = 2;   /* (0.6.2: 2 = a record of 0.6.2 or later) */
 }
 static int prec_from_01(uint32_t i)                  /* a record of 0.1 (36 parameters in 48, its sum at 64): to this one */
 {
@@ -1007,7 +1007,7 @@ static int prec_from_01(uint32_t i)                  /* a record of 0.1 (36 para
     r->name[11] = 0;
     for (k = 0; k < NP1; k++) r->p[k] = b[16 + k] > PMAX[k] ? PMAX[k] : b[16 + k];
     for (k = NP1; k < NP; k++) r->p[k] = DEF2[k - NP1];
-    r->used = 1;
+    r->used = 2;   /* (0.6.2: 2 = a record of 0.6.2 or later) */
     return 1;
 }
 static int prec_from_02(uint32_t i)                  /* a record of 0.2 or 0.3 (60 or 64 parameters in 64, its sum at 80): to this one */
@@ -1025,7 +1025,7 @@ static int prec_from_02(uint32_t i)                  /* a record of 0.2 or 0.3 (
     r->name[11] = 0;
     for (k = 0; k < np; k++) r->p[k] = b[16 + k] > PMAX[k] ? PMAX[k] : b[16 + k];
     for (k = np; k < NP; k++) r->p[k] = DEF2[k - NP1];
-    r->used = 1;
+    r->used = 2;   /* (0.6.2: 2 = a record of 0.6.2 or later) */
     return 1;
 }
 #define SET_OFF 0x3000u
@@ -1057,6 +1057,15 @@ static void presets_load(void)
             prec_factory(i); continue;
         }
         r->name[11] = 0;
+        if (r->used == 1u) {                        /* 0.6.2, once per record: 0.6 put CORO VIRGO in FUSIONE A COMANDO (its events waited for REC for ever) */
+            static const char CV[] = "CORO VIRGO";
+            uint32_t j, same = 1;
+            for (j = 0; j < sizeof CV; j++) if (r->name[j] != CV[j]) same = 0;
+            if (same && r->np == NP && r->p[P_FUSM] == 2u) r->p[P_FUSM] = 0;
+            r->used = 2;
+            save_sectors |= 1u << (i / 16u);
+            save_pending = 1;
+        }
         if (r->np != NP) {                          /* 0.4's: SHIMMER off, AUDIO as it comes; 0.5's: EVENTO, TURING, RITMO */
             uint32_t j, same = i < NFACT;
             for (k = r->np; k < NP; k++) r->p[k] = DEF2[k - NP1];

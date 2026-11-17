@@ -161,7 +161,7 @@ static void save_to(uint32_t dst)
     pr[dst].name[11] = 0;
     { uint32_t n = 11u; while (n && (pr[dst].name[n - 1u] == ' ' || !pr[dst].name[n - 1u])) pr[dst].name[--n] = 0; }
     for (k = 0; k < NP; k++) pr[dst].p[k] = par[k];
-    pr[dst].used = 1;
+    pr[dst].used = 2;
     save_sectors |= 1u << (dst / 16u);
     cur_preset = dst;
     t_cur = fm1_ms;
@@ -448,6 +448,7 @@ static void app_sysex(const uint8_t *p, uint32_t n)
             r.np = NP;
             for (k = 0; k < NP; k++) if (r.p[k] > PMAX[k]) r.p[k] = PMAX[k];
             r.name[11] = 0;
+            r.used = 2;
             pr[i] = r;
         } else { for (k = 0; k < sizeof r; k++) ((uint8_t *)&pr[i])[k] = 0; }
         save_sectors |= 1u << (i / 16u);
@@ -621,7 +622,7 @@ static void app_step(void)
 
 #ifdef DINGHY_HOST
     { static uint32_t t_dbg; if (getenv("VDBG") && fm1_ms - t_dbg >= 250u) { t_dbg = fm1_ms; printf("%6u ST", fm1_ms);
-      for (k = 0; k < NV; k++) printf(" [%u n%u ks%d left %.1fs of %.1fs]", vs[k].stage, v_note[k], vs[k].ksabs, vs[k].left / 44100.0, vs[k].e.tc / 44100.0); printf(" gov %u pre %u cong %u\n", gov, cur_preset, par[P_CONG]); } }
+      for (k = 0; k < NV; k++) printf(" [%u n%u ks%d left %.1fs of %.1fs]", vs[k].stage, v_note[k], vs[k].ksabs, vs[k].left / 44100.0, vs[k].e.tc / 44100.0); printf(" gov %u pre %u cong %u fus %u\n", gov, cur_preset, par[P_CONG], par[P_FUSM]); } }
 #endif
     if (par[P_FUSM] != 2u) { uint32_t v; for (v = 0; v < NV; v++) if (vs[v].e.fus == 2u && vs[v].stage == ST_INSP && !ev_go[v]) ev_go[v] = 1; }   /* 0.6.1: no longer A COMANDO: what waited merges */
     /* LEDs */

@@ -1,4 +1,4 @@
-# Mario Texture's VIRGO 0.6.1 – onde gravitazionali per l'M-VAVE FM-1
+# Mario Texture's VIRGO 0.6.2 – onde gravitazionali per l'M-VAVE FM-1
 
 Firmware synth per l'FM-1: ogni nota è una coalescenza di buchi neri (inspiral → fusione → ringdown), 4 eventi insieme.
 Fratello di [GRANA](https://github.com/mongio/grana-fm1), costruito sullo stesso impianto (Dinghy / Felucca), GPL-3.0.
@@ -46,6 +46,11 @@ poi build/host/virgo build/host/out script.txt (schermi PPM e WAV; build/host/ub
 Preset e impostazioni in 0x93000..0x97000 (libera su FM-1): GRANA (preset a 0x97000, impostazioni a 0xFC000) resta intatto.
 Banca utente condivisa con GRANA a 0x9B000. Codice 154 KB (206 KB con BT), RAM 28,6 KB (39,3 KB), pool 278 KB.
 Carico audio misurato in fm1-emu: 2,1–2,7 ms su 5,8 con 4 eventi e tutti gli effetti.
+
+## Novità 0.6.2 – code che finiscono
+- Gli eventi di RUN, di REC e del catalogo sono come un tasto premuto e lasciato subito: dopo il ringdown la coda va in rilascio (RILASCIO ne decide la durata). Prima restavano "tenuti" per sempre e la coda non finiva mai, anche a RUN fermo (c'era già nella 0.5).
+- CORO VIRGO non è più in FUSIONE A COMANDO (i suoi eventi aspettavano REC per sempre); resta INVERSO 60 %. Il CORO VIRGO già in memoria viene corretto una volta sola all'accensione; se poi scegli A COMANDO e salvi, resta.
+- Le code restano solo per scelta: HOLD / HOLD INFINITO, CONGELA e FUSIONE AL RILASCIO mentre tieni il tasto, FUSIONE A COMANDO finché non premi REC.
 
 ## Novità 0.6.1 – correzioni
 - Preset che sparivano allo spegnimento: la flash veniva scritta solo a voci tutte spente, e alcune voci non si spegnevano mai (sotto). Ora un preset salvato va in flash entro 2,5 s anche mentre suona; anche l'ultimo preset usato viene ricordato (entro 3 s a silenzio, 20 s al massimo) e all'accensione si riparte da lì.
