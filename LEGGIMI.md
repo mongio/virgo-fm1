@@ -1,4 +1,4 @@
-# Mario Texture's VIRGO 0.6 – onde gravitazionali per l'M-VAVE FM-1
+# Mario Texture's VIRGO 0.6.1 – onde gravitazionali per l'M-VAVE FM-1
 
 Firmware synth per l'FM-1: ogni nota è una coalescenza di buchi neri (inspiral → fusione → ringdown), 4 eventi insieme.
 Fratello di [GRANA](https://github.com/mongio/grana-fm1), costruito sullo stesso impianto (Dinghy / Felucca), GPL-3.0.
@@ -46,6 +46,13 @@ poi build/host/virgo build/host/out script.txt (schermi PPM e WAV; build/host/ub
 Preset e impostazioni in 0x93000..0x97000 (libera su FM-1): GRANA (preset a 0x97000, impostazioni a 0xFC000) resta intatto.
 Banca utente condivisa con GRANA a 0x9B000. Codice 154 KB (206 KB con BT), RAM 28,6 KB (39,3 KB), pool 278 KB.
 Carico audio misurato in fm1-emu: 2,1–2,7 ms su 5,8 con 4 eventi e tutti gli effetti.
+
+## Novità 0.6.1 – correzioni
+- Preset che sparivano allo spegnimento: la flash veniva scritta solo a voci tutte spente, e alcune voci non si spegnevano mai (sotto). Ora un preset salvato va in flash entro 2,5 s anche mentre suona; anche l'ultimo preset usato viene ricordato (entro 3 s a silenzio, 20 s al massimo) e all'accensione si riparte da lì.
+- CORDA: la corda teneva per sempre un filo di suono (arrotondamento nel giro della corda) e la voce non finiva: LED dei tasti accesi, voci occupate, CPU sprecata. Corretto.
+- Il riduttore di CPU, quando deve togliere una voce, toglie prima quelle in coda o rilascio e mai una appena suonata (prima toglieva la più piana, cioè spesso il tasto appena premuto: si sentiva solo "aprirsi il VCA").
+- Cambiando preset, gli eventi ancora in spirale (in NEUTRONI e ORBITE 2:3 durano più di un minuto) si fondono in 1,5 s e la coda finisce da sola; uscendo da FUSIONE A COMANDO, gli eventi in attesa si fondono.
+- PAN nelle MOD A/B: ora sposta la voce su tutta la larghezza, a potenza costante (prima al massimo a metà).
 
 ## Novità 0.6 – evento, Turing, ritmo, scale dalla fisica, batteria
 - Batteria nell'intestazione, in alto a destra: pila a 4 tacche con le soglie del firmware M-VAVE (canale 3 dell'ADC: ≥591 quattro verdi, ≥561 tre verdi, ≥531 due ambra, sotto una rossa che lampeggia), 4 punti di isteresi, fulmine verde con l'USB. A una tacca compare "BATTERIA SCARICA" una volta. Il valore letto è nella pagina MIDI (BATT n), per controllare le soglie. Nell'intestazione eventi e spia BT si spostano di 20 px a sinistra.

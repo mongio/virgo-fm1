@@ -1107,6 +1107,10 @@ static void samp_sync(void)
 }
 static void preset_recall(uint32_t i)
 {
+    {   /* 0.6.1: the events of the preset left behind, still spiralling (some for a minute), merge in 1.5 s and ring out */
+        uint32_t v;
+        for (v = 0; v < NV; v++) if (vs[v].stage == ST_INSP && !vs[v].e.rev) ev_rush[v] = 1;
+    }
     uint32_t k;
     cur_preset = i % NPRESET;
     t_cur = fm1_ms;

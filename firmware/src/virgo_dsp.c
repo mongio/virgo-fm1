@@ -178,6 +178,7 @@ typedef struct {
     int32_t rsig;                                   /* RADIO: how well tuned (Q15, 1 on the station) */
     int32_t kill;                                   /* 0.4.1: the governor lets it go: its level falling (Q15, 0 = it sounds) */
     uint32_t spd;                                   /* 0.6 TUFFO: the inspiral's speed (Q8, 0 its own) */
+    uint32_t born;                                  /* 0.6.1: the audio call it began in (the governor spares the newest) */
     uint32_t sleft;                                 /* INVERSO: the growing ring's frames left */
     int32_t fin;                                    /* INVERSO: the reversed chirp's fade in (Q15) */
 } vstate_t;
@@ -185,6 +186,7 @@ static vstate_t vs[NV];                             /* the ISR's */
 static ev_t ev_pend[NV];                            /* the main loop's: complete when ev_trig[v] is set */
 static volatile uint8_t ev_trig[NV], ev_gate[NV];
 static volatile uint8_t ev_go[NV];                  /* 0.6 FUSIONE A COMANDO: the main loop says merge now */
+static volatile uint8_t ev_rush[NV];                /* 0.6.1: another preset: what still spirals merges in 1.5 s */
 static volatile uint8_t hold_on;                    /* HOLD: the codas go on */
 /* for the screen (written by the ISR once a block) */
 typedef struct { volatile uint8_t stage; volatile uint32_t hz16, phi, prog; volatile int32_t amp, amode[NM]; volatile uint32_t mhz16[NM]; volatile int32_t idx_now, fc_hz; } vis_t;
@@ -421,6 +423,7 @@ static volatile uint32_t lim_hits;                  /* frames it held down (the 
  * detector's noise and the modes under the engines, then one voice, then two (they fade out in 12 ms). It comes back
  * down step by step when there is room again. So the audio never runs over its time, and the panel never freezes. */
 static volatile uint32_t gov;                       /* 0 .. 4 */
+static uint32_t au_calls;                           /* 0.6.1: audio calls so far */
 static uint32_t gov_calm;
 
 /* ---- 0.3: the engines */
@@ -499,8 +502,12 @@ VFAST static inline int32_t ks_tick(vstate_t *s, int32_t in, int32_t g, int32_t 
     uint32_t w = s->ksw, p = w - (d8 >> 8);
     int32_t f = (int32_t)(d8 & 255u), a = bf[p & (KS_N - 1u)], c = bf[(p - 1u) & (KS_N - 1u)], y;
     y = a + (((c - a) * f) >> 8);
-    s->kslp += mul15(y - s->kslp, b);
-    y = sat15(mul15(s->kslp, g) + in);
+    {   /* 0.6.1: both rounded toward zero; floored, the loop kept a small tone forever (|y| ~ 70) and the voice never ended */
+        int32_t t = (y - s->kslp) * b, u;
+        s->kslp += (t + ((t >> 31) & 32767)) >> 15;
+        u = s->kslp * g;
+        y = sat15(((u + ((u >> 31) & 32767)) >> 15) + in);
+    }
     bf[w] = (int16_t)y;
     s->ksw = (w + 1u) & (KS_N - 1u);
     return y;
@@ -581,7 +588,7 @@ VFAST static void ev_begin(uint32_t v)
     for (k = 0; k < NM; k++) vis[v].mhz16[k] = k < s->e.nm ? hz16_of_inc(s->e.ring_inc[k]) : 0u;
     vis[v].amp = 0;
     vis[v].prog = 0;
-    s->spd = 0; s->fin = 32767; ev_go[v] = 0;
+    s->spd = 0; s->fin = 32767; ev_go[v] = 0; ev_rush[v] = 0; s->born = au_calls;
     if (s->e.rev) {                                 /* 0.6 INVERSO: the ring first, growing from far after the merger to it */
         static const uint8_t MM[NM] = {2, 3, 2, 4};
         int32_t a = s->e.amp;
@@ -729,9 +736,16 @@ VFAST static void ev_block(uint32_t v, int32_t *out, uint32_t n)
     amul = 32767 + s->md[MD_AMP];
     if (amul < 0) amul = 0;
     if (amul > 65535) amul = 65535;
-    pl = e->pan_l - mul15(s->md[MD_PAN], 16000); pr = e->pan_r + mul15(s->md[MD_PAN], 16000);
-    if (pl < 0) pl = 0;
-    if (pr < 0) pr = 0;
+    if (s->md[MD_PAN]) {                            /* 0.6.1: PAN across the whole width (before: at most half way), at constant power */
+        int32_t p = (e->pan_r - e->pan_l) * 32768 / 46340 + s->md[MD_PAN];   /* -1 .. 1, Q15 (the event's place, then the LFO) */
+        uint32_t ph;
+        if (p < -32768) p = -32768;
+        if (p > 32768) p = 32768;
+        ph = (uint32_t)(p + 32768) << 14;           /* 0 .. a quarter turn */
+        pl = cos_q15(ph); pr = sin_q15(ph);
+        if (pl < 0) pl = 0;
+        if (pr < 0) pr = 0;
+    } else { pl = e->pan_l; pr = e->pan_r; }
     fd = e->fdamp - mul15(e->fdamp, s->md[MD_RES]);
     if (s->stage != ST_INSP && e->fdamp_ring < fd) fd = e->fdamp_ring;
     if (fd < (e->ftype == 2u || e->ftype == 4u ? 3600 : 6500)) fd = e->ftype == 2u || e->ftype == 4u ? 3600 : 6500;   /* 0.3: Q at most 9 (a pass band 5): it sings, it does not swallow the note */
@@ -858,14 +872,15 @@ VFAST static void ev_block(uint32_t v, int32_t *out, uint32_t n)
             if (s->left >= e->tc) { s->stage = ST_OFF; s->dcl += s->ol; s->dcr += s->orr; }
         } else {
             uint32_t dn = s->spd ? (uint32_t)(((uint64_t)n * s->spd) >> 8) : n;
-            int wait = (e->fus == 1u && ev_gate[v]) || (e->fus == 2u && !ev_go[v]);
-            if (e->fus && !wait && !s->spd) {       /* 0.6 TUFFO: let go (or the command): the rest of the chirp in TUFFO's time */
-                uint64_t q = s->left > e->rush ? ((uint64_t)s->left << 8) / e->rush : 256u;
+            int wait = !ev_rush[v] && ((e->fus == 1u && ev_gate[v]) || (e->fus == 2u && !ev_go[v]));
+            if ((e->fus || ev_rush[v]) && !wait && !s->spd) {   /* 0.6 TUFFO: let go (or the command): the rest of the chirp in TUFFO's time */
+                uint32_t rf = ev_rush[v] ? 66150u : e->rush;
+                uint64_t q = s->left > rf ? ((uint64_t)s->left << 8) / rf : 256u;
                 s->spd = q > 0x1000000u ? 0x1000000u : (uint32_t)q;
                 dn = (uint32_t)(((uint64_t)n * s->spd) >> 8);
             }
             if (s->left > dn) s->left -= dn;
-            else if (e->fus && wait) s->left = 0;  /* FUSIONE AL RILASCIO, A COMANDO: the last orbit, until then */
+            else if (wait) s->left = 0;  /* FUSIONE AL RILASCIO, A COMANDO: the last orbit, until then */
             else if (s->hl > n && !s->spd) { s->left = 0; s->hl -= n; }   /* SOSPENSIONE: at the top, a while */
             else ev_merge(s);
         }
@@ -1207,13 +1222,24 @@ VFAST static void app_audio(int32_t *out, uint32_t n)
     uint32_t t0 = VTICKS(), v, b, i, shed = gov >= 1u, shed2 = gov >= 2u;   /* the governor: what to leave out this time */
     for (v = 0; v < NV; v++)
         if (ev_trig[v]) { ev_begin(v); ev_trig[v] = 0; vs[v].kill = 0; }
-    {   /* the governor's voice cap: 4, then 3, then 2; the quietest goes first */
+    au_calls++;
+    {   /* the governor's voice cap: 4, then 3, then 2. 0.6.1: what goes first is what ends anyway (the release, the coda),
+         * then what no key holds, then the quietest; a voice just begun (0.3 s) is spared: it starts quiet, and before it
+         * was the one let go, a key that only opened and closed */
         uint32_t cap = gov >= 4u ? 2u : gov >= 3u ? 3u : NV, cnt = 0;
         for (v = 0; v < NV; v++) if (vs[v].stage != ST_OFF && !vs[v].kill) cnt++;
         while (cnt > cap) {
             int32_t lo = 0x7FFFFFFF;
             uint32_t w = NV;
-            for (v = 0; v < NV; v++) if (vs[v].stage != ST_OFF && !vs[v].kill && vis[v].amp < lo) { lo = vis[v].amp; w = v; }
+            for (v = 0; v < NV; v++) if (vs[v].stage != ST_OFF && !vs[v].kill) {
+                int32_t sc = vis[v].amp >> 4;
+                if (vs[v].stage == ST_REL) sc += 0;
+                else if (vs[v].stage == ST_CODA) sc += 0x100000;
+                else sc += 0x200000;
+                if (ev_gate[v]) sc += 0x400000;
+                if (au_calls - vs[v].born < 50u) sc += 0x1000000;   /* (50 calls of 256 frames: 0.3 s) */
+                if (sc < lo) { lo = sc; w = v; }
+            }
             if (w == NV) break;
             vs[w].kill = 32767;
             cnt--;

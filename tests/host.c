@@ -82,7 +82,11 @@ static uint8_t host_user[USER_LEN];
 static int host_user_init;
 static int user_read(uint32_t off, void *p, uint32_t n)
 {
-    if (!host_user_init) { memset(host_user, 0xFF, sizeof host_user); host_user_init = 1; }
+    if (!host_user_init) {                          /* VUSER=file: the user flash kept between runs (a power cycle) */
+        FILE *uf;
+        memset(host_user, 0xFF, sizeof host_user); host_user_init = 1;
+        if (getenv("VUSER") && (uf = fopen(getenv("VUSER"), "rb"))) { if (fread(host_user, 1, sizeof host_user, uf)) {} fclose(uf); }
+    }
     if (off > USER_LEN || n > USER_LEN - off) return -1;
     memcpy(p, host_user + off, n);
     return 0;
@@ -254,8 +258,14 @@ static void platform_poll(void)                 /* one call = one millisecond */
     }
 }
 
+static void host_user_keep(void)
+{
+    FILE *uf;
+    if (getenv("VUSER") && (uf = fopen(getenv("VUSER"), "wb"))) { fwrite(host_user, 1, sizeof host_user, uf); fclose(uf); }
+}
 int main(int argc, char **argv)
 {
+    atexit(host_user_keep);
     if (argc > 1) host_out = argv[1];
     if (argc > 2) read_script(argv[2]);
     if (argc > 3) frame_fps = (uint32_t)atoi(argv[3]);

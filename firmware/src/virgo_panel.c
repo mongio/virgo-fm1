@@ -619,6 +619,11 @@ static void app_step(void)
         { static uint32_t lh, t_lh; if (lim_hits != lh) { lh = lim_hits; t_lh = fm1_ms; lim_seen = 1; } else if (fm1_ms - t_lh > 3000u) lim_seen = 0; }   /* the limiter at work, held 3 s */
     }
 
+#ifdef DINGHY_HOST
+    { static uint32_t t_dbg; if (getenv("VDBG") && fm1_ms - t_dbg >= 250u) { t_dbg = fm1_ms; printf("%6u ST", fm1_ms);
+      for (k = 0; k < NV; k++) printf(" [%u n%u ks%d left %.1fs of %.1fs]", vs[k].stage, v_note[k], vs[k].ksabs, vs[k].left / 44100.0, vs[k].e.tc / 44100.0); printf(" gov %u pre %u cong %u\n", gov, cur_preset, par[P_CONG]); } }
+#endif
+    if (par[P_FUSM] != 2u) { uint32_t v; for (v = 0; v < NV; v++) if (vs[v].e.fus == 2u && vs[v].stage == ST_INSP && !ev_go[v]) ev_go[v] = 1; }   /* 0.6.1: no longer A COMANDO: what waited merges */
     /* LEDs */
     for (k = 0; k < NV; k++)
         if (vs[k].stage != ST_OFF && v_note[k] >= kb && v_note[k] < kb + 27u) lit |= 1u << (v_note[k] - kb);
@@ -672,14 +677,27 @@ static void app_step(void)
     }
     if (fm1_ms - t_pic >= 50u) { t_pic = fm1_ms; draw_picture(); }
 
-    if (save_pending && quiet() && fm1_ms - t_save > 300u) { presets_flush(); save_pending = 0; }
-    if (((t_cur && pr[cur_preset].used && store.cur != cur_preset && fm1_ms - t_cur > 3000u) ||
-         (set_dirty && fm1_ms - t_set > 2000u)) && quiet()) {
+    /* 0.6.1: the flash is written when nothing sounds (writing stops the audio for a moment); but no longer only then:
+     * an event that never ended kept SAVE in memory until the power went. A saved preset goes to the flash within
+     * 2.5 s anyway; the last preset (to start again from it) within 3 s when quiet, 20 s if not. */
+    if (save_pending && fm1_ms - t_save > 300u && (quiet() || fm1_ms - t_save > 2500u)) {
+        presets_flush(); save_pending = 0;
+        if (pr[cur_preset].used && store.cur != cur_preset) { store.ver = SET_VER; store.cur = (uint8_t)cur_preset; vset_save(); t_cur = 0; }   /* (and it is the one to start from) */
+    }
+    {
+        static uint32_t t_want;
+        uint32_t want = (t_cur && pr[cur_preset].used && store.cur != cur_preset && fm1_ms - t_cur > 3000u) ||
+                        (set_dirty && fm1_ms - t_set > 2000u);
+        if (!want) t_want = 0; else if (!t_want) t_want = fm1_ms ? fm1_ms : 1u;
+        if (want && !save_pending && (quiet() || fm1_ms - t_want > 17000u)) want = 2u;
+        if (want == 2u) {
         store.ver = SET_VER;
         if (pr[cur_preset].used) store.cur = (uint8_t)cur_preset;
         vset_save();
         t_cur = 0;
         set_dirty = 0;
+        t_want = 0;
+        }
     }
 }
 
