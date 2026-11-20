@@ -1,4 +1,4 @@
-# Mario Texture's VIRGO 0.6.2 – onde gravitazionali per l'M-VAVE FM-1
+# Mario Texture's VIRGO 0.6.3 – onde gravitazionali per l'M-VAVE FM-1
 
 Firmware synth per l'FM-1: ogni nota è una coalescenza di buchi neri (inspiral → fusione → ringdown), 4 eventi insieme.
 Fratello di [GRANA](https://github.com/mongio/grana-fm1), costruito sullo stesso impianto (Dinghy / Felucca), GPL-3.0.
@@ -46,6 +46,12 @@ poi build/host/virgo build/host/out script.txt (schermi PPM e WAV; build/host/ub
 Preset e impostazioni in 0x93000..0x97000 (libera su FM-1): GRANA (preset a 0x97000, impostazioni a 0xFC000) resta intatto.
 Banca utente condivisa con GRANA a 0x9B000. Codice 154 KB (206 KB con BT), RAM 28,6 KB (39,3 KB), pool 278 KB.
 Carico audio misurato in fm1-emu: 2,1–2,7 ms su 5,8 con 4 eventi e tutti gli effetti.
+
+## Novità 0.6.3 – il RUN come nella 0.6.1, luce dei tasti
+- Gli eventi del RUN restano tenuti finché il RUN suona, come nella 0.6.1: TONNETZ, ORBITE 2:3 e gli altri preset col RUN tornano identici alla 0.6.1. Quando fermi il RUN (PLAY, MIDI STOP o TASSO a 0) le code vanno in rilascio e chi aspettava una FUSIONE A COMANDO si fonde: niente resta acceso.
+- REC e catalogo come nella 0.6.2: un evento che finisce da solo.
+- CORO VIRGO torna com'era nella 0.6.1 (FUSIONE A COMANDO, INVERSO 60 %); il CORO VIRGO in memoria modificato dalla 0.6.2 viene ripristinato una volta sola all'accensione.
+- Pagina MIDI: LUCE TASTI (manopola 4) PIENA / MEZZA / SPENTA, la luce di fondo dei tasti non premuti, salvata nelle impostazioni (come in NeckarGanga). LEARN (manopola 3) ora sceglie anche cosa cancella OCT+: CANC. TUTTE, CANC. ULTIMA, SPENTO, ATTIVO.
 
 ## Novità 0.6.2 – code che finiscono
 - Gli eventi di RUN, di REC e del catalogo sono come un tasto premuto e lasciato subito: dopo il ringdown la coda va in rilascio (RILASCIO ne decide la durata). Prima restavano "tenuti" per sempre e la coda non finiva mai, anche a RUN fermo (c'era già nella 0.5).

@@ -161,7 +161,7 @@ static void save_to(uint32_t dst)
     pr[dst].name[11] = 0;
     { uint32_t n = 11u; while (n && (pr[dst].name[n - 1u] == ' ' || !pr[dst].name[n - 1u])) pr[dst].name[--n] = 0; }
     for (k = 0; k < NP; k++) pr[dst].p[k] = par[k];
-    pr[dst].used = 2;
+    pr[dst].used = 3;
     save_sectors |= 1u << (dst / 16u);
     cur_preset = dst;
     t_cur = fm1_ms;
@@ -172,7 +172,14 @@ static void save_to(uint32_t dst)
 }
 
 /* ---- MIDI: USB and the TRS jack (and Bluetooth) together. The clock in sets RUN's tempo; LEARN as GRANA's */
-static uint32_t learn_have, learn_st, learn_num, t_learn, del_all;
+static uint32_t learn_have, learn_st, learn_num, t_learn, del_all, learn_sel = 2u;   /* 0.6.3: LEARN knob CANC. TUTTE / CANC. ULTIMA / SPENTO / ATTIVO */
+static void key_light_apply(void)                  /* 0.6.3: the keys' backlight when not pressed: PIENA (as before), MEZZA, SPENTA */
+{
+    static const uint16_t NS[3] = {5000u, 1500u, 0u};
+    uint32_t k, l = store.key_light > 2u ? 0u : store.key_light;
+    fm1_led_bg_ns = NS[l];
+    for (k = 0; k < 41u; k++) fm1_led_back(k, l != 2u);
+}
 static int32_t learn_par = -1;
 static char *msg_text(char *e, uint32_t st, uint32_t num)
 {
@@ -305,16 +312,24 @@ static void midi_value(uint32_t c, char *s)
         else if (store.rx == 1u) cat(s, "SOLO CLOCK");
         else { e = cat(s, "CANALE "); cat_u(e, store.rx - 1u); }
         break;
-    case 2: cat(s, learn_on ? "ATTIVO" : "SPENTO"); break;
-    default: cat(s, del_all ? "TUTTE (OCT+)" : "ULTIMA (OCT+)"); break;
+    case 2: cat(s, learn_on ? "ATTIVO" : learn_sel == 0u ? "CANC. TUTTE" : learn_sel == 1u ? "CANC. ULTIMA" : "SPENTO"); break;
+    default: cat(s, store.key_light == 1u ? "MEZZA" : store.key_light == 2u ? "SPENTA" : "PIENA"); break;
     }
 }
 static void midi_knob(uint32_t c, int32_t d)
 {
     if (c == 0u) { clk_ext = d > 0; store.clk_in = (uint8_t)clk_ext; settings_touch(); }
     else if (c == 1u) { int32_t r = (int32_t)store.rx + d; store.rx = (uint8_t)(r < 0 ? 0 : r > 17 ? 17 : r); settings_touch(); }
-    else if (c == 2u) { if ((d > 0) != (learn_on != 0u)) learn_start(d > 0); }
-    else del_all = d > 0;
+    else if (c == 2u) {                             /* 0.6.3: as NeckarGanga, one knob: CANC. TUTTE, CANC. ULTIMA (OCT+ deletes), SPENTO, ATTIVO */
+        int32_t n = (int32_t)(learn_on ? 3u : learn_sel) + (d > 0 ? 1 : -1);
+        n = n < 0 ? 0 : n > 3 ? 3 : n;
+        if (n == 3) { if (!learn_on) learn_start(1); }
+        else { if (learn_on) learn_start(0); learn_sel = (uint32_t)n; del_all = n == 0; }
+    } else {
+        int32_t n = (int32_t)(store.key_light > 2u ? 0u : store.key_light) + (d > 0 ? 1 : -1);
+        store.key_light = (uint8_t)(n < 0 ? 0 : n > 2 ? 2 : n);
+        key_light_apply(); settings_touch();
+    }
     dirty_cells |= 1u << c;
 }
 static void midi_delete(void)
@@ -448,7 +463,7 @@ static void app_sysex(const uint8_t *p, uint32_t n)
             r.np = NP;
             for (k = 0; k < NP; k++) if (r.p[k] > PMAX[k]) r.p[k] = PMAX[k];
             r.name[11] = 0;
-            r.used = 2;
+            r.used = 3;
             pr[i] = r;
         } else { for (k = 0; k < sizeof r; k++) ((uint8_t *)&pr[i])[k] = 0; }
         save_sectors |= 1u << (i / 16u);
@@ -489,8 +504,7 @@ static void intro_finish(void)
 {
     uint32_t k;
     intro = 0;
-    fm1_led_bg_ns = 5000;
-    for (k = 0; k < 41u; k++) fm1_led_back(k, 1);
+    key_light_apply();
     lcd_sync();
     lcd_fill(0, 0, 240, 240, 0);
     samp_sync();

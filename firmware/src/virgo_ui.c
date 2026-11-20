@@ -217,7 +217,7 @@ static void draw_header(void)
 /* ---- the knobs */
 static void value_text(uint32_t p, char *s);
 static void midi_value(uint32_t c, char *s);
-static const char *const MIDI_PN[4] = {"CLOCK", "RICEVI", "LEARN", "CANCELLA"};
+static const char *const MIDI_PN[4] = {"CLOCK", "RICEVI", "LEARN", "LUCE TASTI"};
 #if GRANA_BT
 static void bt_cell(uint32_t c, const char **lab, char *s, uint32_t *hi);
 #endif

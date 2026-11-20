@@ -451,6 +451,8 @@ static int32_t scale_snap16(int32_t x16, uint32_t spin)   /* any scale: a pitch 
 static int32_t ev_frac16;                           /* 0.6: the next event's note, the fraction of a semitone (the physics' scales) */
 static int32_t ev_chance16 = -1;                    /* the next event's chance of INVERSO (-1: its own) */
 static uint32_t ev_keyed;                           /* the next event is a key's (or a MIDI note's) */
+static uint32_t ev_byrun;                           /* 0.6.3: the next event is RUN's */
+static uint8_t v_run[NV];                           /* 0.6.3: the voice was started by RUN (held while RUN plays) */
 static uint32_t scale_shown(uint32_t spin)
 {
     uint32_t s = par[P_SCALE] % NSCALE;
@@ -707,7 +709,8 @@ static void ev_start(uint32_t note, uint32_t vel, uint32_t m1, uint32_t m2, uint
     e->use = par[P_USE];
     e->smp_lv = (int32_t)lvl_q15(par[P_SLV]);
     e->smp_start = 0;
-    ev_gate[v] = (uint8_t)(ev_keyed ? 1u : 0u);       /* 0.6.2: RUN, REC, the catalogue: a key let go at once (before: held for ever, the coda never ended) */
+    ev_gate[v] = (uint8_t)(ev_keyed || ev_byrun ? 1u : 0u);   /* 0.6.3: a key's, or RUN's while RUN plays (as in 0.6.1); REC and the catalogue: let go at once */
+    v_run[v] = (uint8_t)(ev_byrun ? 1u : 0u);
     v_note[v] = (uint8_t)note;
     v_key[v] = 255;
     v_age[v] = ++ages;
@@ -958,7 +961,7 @@ static const uint8_t FX6[][3] = {
     {8, P_RITMO, 1}, {8, P_EPASSI, 14}, {8, P_ECOLPI, 6}, {8, P_SCALE, SC_ORBIT},   /* TONNETZ: 7 in 16, the orbits' scale */
     {9, P_RITMO, 2}, {9, P_EPASSI, 2}, {9, P_ECOLPI, 1}, {9, P_NOTE, 2}, {9, P_TEXT, 7},   /* ORBITE 2:3: 3 against 2, undertones */
     {12, P_SCALE, SC_RESTO}, {12, P_CONG, 55},                                  /* CORDA NERA: the remnant's own scale */
-    {13, P_INV, 60},                                                             /* CORO VIRGO: backwards (0.6.2: no longer A COMANDO) */
+    {13, P_INV, 60}, {13, P_FUSM, 2},                                           /* CORO VIRGO: backwards, and merged with REC (0.6.3: back as in 0.6.1) */
 };
 typedef struct { uint8_t st, num, par, pad; } learn_t;
 #define NLEARN 32u
@@ -971,7 +974,7 @@ static struct {
     uint8_t bt_dev_addr[6], bt_pad[2];
     char bt_dev_name[20];
     uint8_t bt_kept[112];
-    uint8_t bt_bonded, bt_ediv[2], bt_pad2;
+    uint8_t bt_bonded, bt_ediv[2], key_light;   /* 0.6.3: key_light (was padding, 0): 0 PIENA, 1 MEZZA, 2 SPENTA */
     uint8_t bt_ltk[16], bt_rand[8];
 } store;
 static uint32_t prec_sum(const prec_t *r)
@@ -991,7 +994,7 @@ static void prec_factory(uint32_t i)
     r->name[11] = 0;
     for (k = 0; k < NP; k++) r->p[k] = k < NP5 ? FACT[i].p[k] : DEF2[k - NP1];
     for (k = 0; k < sizeof FX6 / sizeof FX6[0]; k++) if (FX6[k][0] == i) r->p[FX6[k][1]] = FX6[k][2];   /* 0.6's knobs in a few */
-    r->used = 2;   /* (0.6.2: 2 = a record of 0.6.2 or later) */
+    r->used = 3;   /* (0.6.3: 3 = a record of 0.6.3 or later) */
 }
 static int prec_from_01(uint32_t i)                  /* a record of 0.1 (36 parameters in 48, its sum at 64): to this one */
 {
@@ -1007,7 +1010,7 @@ static int prec_from_01(uint32_t i)                  /* a record of 0.1 (36 para
     r->name[11] = 0;
     for (k = 0; k < NP1; k++) r->p[k] = b[16 + k] > PMAX[k] ? PMAX[k] : b[16 + k];
     for (k = NP1; k < NP; k++) r->p[k] = DEF2[k - NP1];
-    r->used = 2;   /* (0.6.2: 2 = a record of 0.6.2 or later) */
+    r->used = 3;   /* (0.6.3: 3 = a record of 0.6.3 or later) */
     return 1;
 }
 static int prec_from_02(uint32_t i)                  /* a record of 0.2 or 0.3 (60 or 64 parameters in 64, its sum at 80): to this one */
@@ -1025,7 +1028,7 @@ static int prec_from_02(uint32_t i)                  /* a record of 0.2 or 0.3 (
     r->name[11] = 0;
     for (k = 0; k < np; k++) r->p[k] = b[16 + k] > PMAX[k] ? PMAX[k] : b[16 + k];
     for (k = np; k < NP; k++) r->p[k] = DEF2[k - NP1];
-    r->used = 2;   /* (0.6.2: 2 = a record of 0.6.2 or later) */
+    r->used = 3;   /* (0.6.3: 3 = a record of 0.6.3 or later) */
     return 1;
 }
 #define SET_OFF 0x3000u
@@ -1057,12 +1060,12 @@ static void presets_load(void)
             prec_factory(i); continue;
         }
         r->name[11] = 0;
-        if (r->used == 1u) {                        /* 0.6.2, once per record: 0.6 put CORO VIRGO in FUSIONE A COMANDO (its events waited for REC for ever) */
+        if (r->used == 1u || r->used == 2u) {       /* 0.6.3, once per record: CORO VIRGO as in 0.6.1 (0.6.2 had taken away its FUSIONE A COMANDO) */
             static const char CV[] = "CORO VIRGO";
             uint32_t j, same = 1;
             for (j = 0; j < sizeof CV; j++) if (r->name[j] != CV[j]) same = 0;
-            if (same && r->np == NP && r->p[P_FUSM] == 2u) r->p[P_FUSM] = 0;
-            r->used = 2;
+            if (same && r->used == 2u && r->np == NP && r->p[P_FUSM] == 0u) r->p[P_FUSM] = 2;
+            r->used = 3;
             save_sectors |= 1u << (i / 16u);
             save_pending = 1;
         }
@@ -1234,18 +1237,28 @@ static void run_event(void)
     ev_start(n, 100u, m1, m2, 30u + c[DV_SPIN] % 61u, d, 0);
     if (par[P_HIER] & 1u) hier_merged(m1, m2);
 }
+static void run_fire(void) { ev_byrun = 1; run_event(); ev_byrun = 0; }
+static void run_release(void)                       /* 0.6.3: RUN stopped: its codas go into the release */
+{
+    uint32_t v;
+    for (v = 0; v < NV; v++) if (v_run[v]) {
+        v_run[v] = 0;
+        if (v_key[v] == 255u) ev_gate[v] = 0;
+        if (vs[v].stage == ST_INSP && vs[v].e.fus == 2u) ev_go[v] = 1;   /* A COMANDO: what RUN left waiting merges now */
+    }
+}
 static uint32_t run_tick, run_tacc, run_last_ms;
 static void run_step(void)
 {
     uint32_t rate = par[P_RATE], tm = par[P_RTEMPO], now = fm1_ms, dt = now - run_last_ms, nt = 0, k;
     static const uint8_t TK[6] = {0, 96, 48, 24, 12, 0};   /* ticks of the grid, 24 a quarter */
     run_last_ms = now;
-    if (!run_on || !rate) return;
+    if (!run_on || !rate) { run_release(); return; }
     if (!tm && !par[P_RITMO]) {                                       /* LIBERO: a Poisson process, rate a minute */
         if ((int32_t)(now - run_next) >= 0) {
             uint32_t mean = 6000000u / (rate * 30u), u = dv_hit() + 1u;
             int32_t l = log2_q16(65536u) - log2_q16(u);   /* -log2 u, Q16 */
-            run_event();
+            run_fire();
             run_next = now + 50u + (uint32_t)(((uint64_t)mean * (uint32_t)l * 45426u) >> 32);   /* x ln 2 */
         }
         return;
@@ -1266,7 +1279,7 @@ static void run_step(void)
             st = t / g;
             rt_pos = st % rt_N();
             h = rt_hit(st);
-            if (h && (rate >= 100u || rand_u16() % 1000u < rate * 10u)) { rt_hit_t = fm1_ms ? fm1_ms : 1u; run_event(); }
+            if (h && (rate >= 100u || rand_u16() % 1000u < rate * 10u)) { rt_hit_t = fm1_ms ? fm1_ms : 1u; run_fire(); }
             continue;
         }
         if (tm == 5u) { hit = !(t % 24u) || !(t % 16u); g = 12u; }   /* ORBITE 2:3: two orbits in resonance, two against three */
@@ -1274,7 +1287,7 @@ static void run_step(void)
         if (hit) {                                   /* at each step: an event with the chance that keeps the rate */
             uint32_t bpm = clk_ext ? (ext_bpm10 / 10u ? ext_bpm10 / 10u : 120u) : (uint32_t)par[P_BPM] + 40u;
             uint32_t step_ms = 60000u * g / 24u / bpm, p = rate * 30u * step_ms / 6000u;   /* per mille */
-            if (p > 1000u || (dv_hit() % 1000u) < p) run_event();
+            if (p > 1000u || (dv_hit() % 1000u) < p) run_fire();
         }
     }
 }
