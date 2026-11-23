@@ -12,7 +12,7 @@ in the catalogue, a detector you can tune like a radio, a long dense reverb with
 > uninstalls over USB; to go back to the stock firmware, reinstall it with the official updater or the
 > [FM-1 Firmware Hub](https://fm1.designburgapps.com). Use at your own risk.
 
-Version **0.6.2**. Sister of [GRANA](https://github.com/mongio/grana-fm1), the granular firmware for the same device.
+Version **0.6.3**. Sister of [GRANA](https://github.com/mongio/grana-fm1), the granular firmware for the same device.
 
 <p align="center"><img src="docs/intro.png" width="240" alt="VIRGO's opening screen"></p>
 <p align="center"><img src="docs/screens.png" width="720" alt="Eight of VIRGO's pages: source, chirp, ringdown, interferometer, reverb, shimmer, radio, déjà vu"></p>
@@ -86,7 +86,7 @@ page's four parameters. Names as on the screen.
 |  | RITMO | RITMO | PASSI | COLPI | ROTAZIONE |
 | SEQ | CAMPIONE | SUONO | USO | LIVELLO | INIZIO |
 | GLO | AUDIO | VOLUME | BPM | COMP/LIMIT | STEREO |
-|  | MIDI | CLOCK | RICEVI | LEARN | CANCELLA |
+|  | MIDI | CLOCK | RICEVI | LEARN | LUCE TASTI |
 |  | BT (Bluetooth only) | BLUETOOTH | DISPOSITIVO | MODO | AVVIO |
 
 A few words: SORGENTE source · MASSA mass · ROTAZIONE spin · FUSIONI mergers · PARTENZA start (octaves below) ·

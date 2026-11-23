@@ -780,7 +780,7 @@ VFAST static void ev_block(uint32_t v, int32_t *out, uint32_t n)
             uint32_t rest = s->left < e->tc ? e->tc - s->left : 0u, f6 = e->tc / 6u + 1u;
             if (s->fin < 32767) { s->fin += 1800; if (s->fin > 32767) s->fin = 32767; }   /* (13 ms) */
             a1 = mul15(a1, s->fin);
-            if (rest < f6) a1 = (int32_t)(((int64_t)a1 * rest) / f6);
+            if (rest < f6) a1 = (int32_t)(((uint64_t)(uint32_t)a1 * rest) / f6);   /* (a1 >= 0; unsigned: no __divdi3 with JieLi) */
         }
         v1 = (int32_t)(exp2_q16(l2 / 3) * 14746u >> 16);                    /* v ~ 0.45 (f/fM)^(1/3), Q15 */
         v2 = (v1 * v1) >> 15;

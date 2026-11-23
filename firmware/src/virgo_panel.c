@@ -502,7 +502,6 @@ static void app_setup(void)
 }
 static void intro_finish(void)
 {
-    uint32_t k;
     intro = 0;
     key_light_apply();
     lcd_sync();

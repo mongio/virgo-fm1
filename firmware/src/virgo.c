@@ -413,7 +413,7 @@ static uint32_t scale_deg(uint32_t spin, int32_t *deg)  /* the degrees (Q16 semi
         for (i = 0; i < NM; i++) l[i] = log2_q16(QNM_R[spin * 4u + i]);
         c[m++] = 0;
         for (i = 0; i < NM; i++) for (j = 0; j < NM; j++) if (i != j && m < NDEG) {
-            int32_t x = (int32_t)(((int64_t)(l[i] - l[j]) * 12) % (12 << 16));
+            int32_t x = ((l[i] - l[j]) * 12) % (12 << 16);   /* (32-bit: |x| < 2^21; no __moddi3 with JieLi) */
             if (x < 0) x += 12 << 16;
             c[m++] = x;
         }

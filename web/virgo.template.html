@@ -293,7 +293,7 @@ const SHOT_TXT = {
   evento: ['EVENTO (SEL ×4)', 'La forma di un evento: l’inspiral, l’attesa sull’ultima orbita (TIENI o REC), il tuffo, la fusione, il ringdown congelato; in viola l’evento al contrario. FUSIONE, CONGELA, INVERSO, TUFFO.'],
   turing: ['TURING (ARP ×3)', 'Il registro: i bit nel giro (LUNGHEZZA) accesi, gli otto letti in mezzo come numero; a destra le ultime note, con i cent fuori dai semitoni. NOTE, CAMBIO, LUNGHEZZA, ESTENSIONE.'],
   ritmo: ['RITMO (ARP ×4)', 'I passi in cerchio, i colpi pieni, l’anello bianco dove si trova RUN; nel POLIRITMO due anelli, A fuori e B dentro. RITMO, PASSI, COLPI, ROTAZIONE.'],
-  midi: ['MIDI (GLO ×2)', 'CLOCK, RICEVI, LEARN, CANCELLA (OCT+ conferma). In basso la versione, il chip flash, la batteria (il valore letto) e il carico dell’audio.'],
+  midi: ['MIDI (GLO ×2)', 'CLOCK, RICEVI, LEARN (anche CANC. TUTTE / CANC. ULTIMA: OCT+ cancella), LUCE TASTI (PIENA, MEZZA, SPENTA: la luce dei tasti non premuti). In basso la versione, il chip flash, la batteria (il valore letto) e il carico dell’audio.'],
 };
 for (const [k, b] of Object.entries(SHOTS)) {
   const d = document.createElement('div'); d.className = 'shot';
@@ -811,7 +811,7 @@ const PAGEK = [['MASSA 1', 'MASSA 2', 'ROTAZIONE', 'DISTANZA'], ['DURATA', 'PART
   ['SORGENTE', 'DESTINAZIONE', 'QUANTITÀ', 'FORMA LFO'], ['CORO', 'ECO', 'TEMPO ECO', 'RITORNO'],
   ['FINALE', 'PICCO', 'SOSPENSIONE', 'APPRODO'], ['RIVERBERO', 'CODA RIV.', 'DENSITÀ', 'BRILLANZA'], ['DÉJÀ VU', 'LUNGHEZZA', 'DISPERSIONE', 'SU'],
   ['RADIO', 'SINTONIA', 'SELETTIVITÀ', 'STATICA'], ['SHIMMER', 'TIPO', 'MOVIMENTO', 'PRE-DELAY'],
-  ['FUSIONE', 'CONGELA', 'INVERSO', 'TUFFO'], ['NOTE', 'CAMBIO', 'LUNGHEZZA', 'ESTENSIONE'], ['RITMO', 'PASSI', 'COLPI', 'ROTAZIONE'], ['CLOCK', 'RICEVI', 'LEARN', 'CANCELLA'], ['BLUETOOTH', 'DISPOSITIVO', 'MODO', 'AVVIO']];
+  ['FUSIONE', 'CONGELA', 'INVERSO', 'TUFFO'], ['NOTE', 'CAMBIO', 'LUNGHEZZA', 'ESTENSIONE'], ['RITMO', 'PASSI', 'COLPI', 'ROTAZIONE'], ['CLOCK', 'RICEVI', 'LEARN', 'LUCE TASTI'], ['BLUETOOTH', 'DISPOSITIVO', 'MODO', 'AVVIO']];
 let node = null, ctx = null, keysMask = 0, engineOn = false;
 const send = (m) => { if (node) node.port.postMessage(m); };
 const sn = (t) => { $('simNote').textContent = t; };

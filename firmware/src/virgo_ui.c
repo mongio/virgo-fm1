@@ -1405,7 +1405,7 @@ static void draw_turing(void)                       /* the register going round,
         for (i = 0; i < (int32_t)tu_n; i++) { if (tu_hist[i] < lo) lo = tu_hist[i]; if (tu_hist[i] > hi) hi = tu_hist[i]; }
         if (hi - lo < (12 << 16)) { int32_t m = (hi + lo) / 2; lo = m - (6 << 16); hi = m + (6 << 16); }
         for (i = 0; i < (int32_t)tu_n; i++) {
-            int32_t x = bx + bw - 8 - i * 7, y = by + bh - 4 - (int32_t)(((int64_t)(tu_hist[i] - lo) * (bh - 8)) / (hi - lo));
+            int32_t x = bx + bw - 8 - i * 7, y = by + bh - 4 - (int32_t)(((uint64_t)(uint32_t)(tu_hist[i] - lo) * (uint32_t)(bh - 8)) / (uint32_t)(hi - lo));
             vg_rect(x, y, 5, by + bh - y, c, i ? 90u : 230u);
             vg_rect(x, y, 5, 2, i ? C_DIM : 0xFFFFFF, 256);
         }
